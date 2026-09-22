@@ -69,6 +69,11 @@ def _handle_get_route(path: str, query_params: Dict[str, List[str]]) -> tuple[in
         html_file = STATIC_DIR / "index.html"
         return 200, "text/html; charset=utf-8", html_file.read_bytes()
 
+    if path == "/AIL200-FFP-Agent.zip":
+        zip_file = STATIC_DIR / "AIL200-FFP-Agent.zip"
+        if zip_file.exists():
+            return 200, "application/zip", zip_file.read_bytes()
+
     if path == "/.well-known/agent.json":
         return 200, "application/json", json.dumps(A2A_AGENT_CARD, indent=2).encode("utf-8")
 

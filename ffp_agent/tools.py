@@ -136,13 +136,19 @@ def fetch_nflverse_player_sabermetric_telemetry(
         payload["adjusted_expected_fp_pg"] = adjusted_xfp
         payload["adjusted_actual_fp_pg"] = adjusted_actual
         payload["adjusted_xfp_differential"] = round(adjusted_xfp - adjusted_actual, 2)
-        payload["sabermetric_verdict"] = (
-            "STRONG_BUY_LOW_OR_WAIVER_PRIORITY"
-            if profile.xfp_differential_ppr >= 2.0 and profile.yards_per_route_run_yprr >= 1.90
-            else "SELL_HIGH_REGRESSION_RISK"
-            if profile.xfp_differential_ppr <= -2.0
-            else "HOLD_OR_MATCHUP_STARTER"
-        )
+        if not profile.is_waiver_eligible_healthy:
+            payload["regression_verdict"] = "DO_NOT_ADD_INJURED_OR_OFF_DEPTH_CHART"
+            payload["live_injury_gatekeeper_alert"] = profile.exclusion_reason
+        else:
+            payload["regression_verdict"] = (
+                "STRONG_BUY_LOW_OR_WAIVER_PRIORITY"
+                if profile.xfp_differential_ppr >= 2.0 and profile.l4_yprr >= 1.90 and profile.l4_route_delta_pct >= 5.0
+                else "SELL_HIGH_REGRESSION_RISK"
+                if profile.xfp_differential_ppr <= -2.0 or profile.l4_route_delta_pct <= -8.0
+                else "HOLD_OR_MATCHUP_STARTER"
+            )
+        payload["sabermetric_verdict"] = payload["regression_verdict"]
+
 
         res = ToolResultEnvelope(
             status="success",
@@ -223,13 +229,15 @@ def discover_undervalued_waiver_wire_breakouts(
     top_k: int = 5,
     league_id: str = "demo_sleeper_league",
 ) -> Dict[str, Any]:
-    """Scan nflverse play-by-play and participation telemetry to identify low-owned (<35% rostered) breakout players.
+    """Scan nflverse play-by-play and Last 3-4 Game (L4) recency telemetry to identify healthy, active depth-chart breakouts.
 
     PURPOSE & DATA SOURCES:
-    Filters all active NFL skill players in the `nflverse` catalog by Sleeper ownership percentage (`<= max_rostered_pct`),
-    Route Participation %, Yards Per Route Run (`YPRR`), Week-over-Week Snap Share Delta %, and Expected Fantasy Points
-    (`xFP`) differential. Also cross-references live Sleeper league rosters (`league_id`) so players already rostered
-    in the user's specific league are excluded from Waiver Wire recommendations and flagged as Trade Targets instead.
+    1. **Live Injury & Active 53-Man Depth Chart Gatekeeper**: Cross-references Sleeper `/v1/players/nfl` and `nflverse`
+       weekly status to strictly block players on `IR` (e.g., Ricky Pearsall), `PUP` (e.g., Isaac Guerendo), `Out`,
+       or off the active 3-deep NFL depth chart (e.g., Cedric Tillman `depth_chart_order=None`, Tyrone Tracy Jr. `depth=4`).
+    2. **65% Last 3-4 Games (L4) Recency Weighting**: Ranks candidates by recent 3-to-4 game usage inflection
+       (`l4_route_delta_pct`, `l4_yprr`, `l4_weekly_trajectory`) rather than stale full-season averages.
+    3. **Live League Roster Cross-Check**: Filters out players already rostered in the selected `league_id`.
 
     WHEN TO USE:
     Call this tool when the user asks who to pick up off waivers, which low-owned players are about to break out,
@@ -244,8 +252,8 @@ def discover_undervalued_waiver_wire_breakouts(
         league_id: Optional Sleeper League ID or URL to filter against live league rosters.
 
     Returns:
-        Dict[str, Any]: Serialized `ToolResultEnvelope` containing ranked unrostered `breakout_candidates`
-        plus `rostered_in_league_trade_targets` showing who owns already-rostered breakouts in that league.
+        Dict[str, Any]: Serialized `ToolResultEnvelope` containing ranked healthy unrostered `breakout_candidates`,
+        `rostered_in_league_trade_targets`, and `filtered_out_injured_or_inactive` audit records.
     """
     tool_name = "discover_undervalued_waiver_wire_breakouts"
     raw_args = {
@@ -290,21 +298,32 @@ def discover_undervalued_waiver_wire_breakouts(
         client = get_nflverse_client()
         available_candidates: List[Dict[str, Any]] = []
         rostered_in_league: List[Dict[str, Any]] = []
+        filtered_out_injured_or_inactive: List[Dict[str, Any]] = []
 
         for p in client.get_all_players():
             if validated.position != PositionFilter.ALL and p.position != validated.position.value:
                 continue
+
+            p_dict = p.model_dump()
+
+            # Gatekeeper Step 1: Exclude injured (IR/PUP/Out), off-depth-chart, or collapsing-usage players
+            if not p.is_waiver_eligible_healthy:
+                p_dict["league_availability_status"] = "EXCLUDED_INJURED_OR_OFF_DEPTH_CHART"
+                filtered_out_injured_or_inactive.append(p_dict)
+                continue
+
             if p.rostered_pct_sleeper > validated.max_rostered_pct and p.player_id not in rostered_ids:
                 continue
             if p.position in ("WR", "TE"):
-                if p.route_participation_pct < validated.min_route_participation_pct:
+                if p.l4_route_participation_pct < validated.min_route_participation_pct:
                     continue
-                if p.yards_per_route_run_yprr < validated.min_yprr:
+                if p.l4_yprr < validated.min_yprr:
                     continue
 
-            p_dict = p.model_dump()
             if p.player_id in rostered_ids:
-                owner_info = ownership_map.get(p.player_id, {"manager": "League Rival", "team_name": "Rival Team", "is_user": False})
+                owner_info = ownership_map.get(
+                    p.player_id, {"manager": "League Rival", "team_name": "Rival Team", "is_user": False}
+                )
                 p_dict["league_availability_status"] = (
                     "ON_YOUR_ROSTER" if owner_info.get("is_user") else "ROSTERED_BY_RIVAL_TRADE_TARGET"
                 )
@@ -317,12 +336,18 @@ def discover_undervalued_waiver_wire_breakouts(
                 p_dict["owned_by_team"] = "Free Agent / Waivers"
                 available_candidates.append(p_dict)
 
+        # Sort by Recency-Weighted Composite Score + Last 4 Games (L4) Usage Delta + L4 YPRR
         available_candidates.sort(
-            key=lambda x: (x["breakout_composite_score"], x["xfp_differential_ppr"], x["snap_share_delta_wow_pct"]),
+            key=lambda x: (
+                x["breakout_composite_score"],
+                x["l4_route_delta_pct"],
+                x["l4_yprr"],
+                x["xfp_differential_ppr"],
+            ),
             reverse=True,
         )
         rostered_in_league.sort(
-            key=lambda x: (x["breakout_composite_score"], x["xfp_differential_ppr"]),
+            key=lambda x: (x["breakout_composite_score"], x["l4_route_delta_pct"]),
             reverse=True,
         )
         selected = available_candidates[: validated.top_k]
@@ -332,7 +357,7 @@ def discover_undervalued_waiver_wire_breakouts(
                 status="recoverable_error",
                 tool_name=tool_name,
                 error_code="NO_PLAYERS_MATCHED_STRICT_FILTERS",
-                error_message="Zero unrostered players matched the current combination of ownership and efficiency thresholds.",
+                error_message="Zero healthy unrostered players matched the current combination of ownership and efficiency thresholds.",
                 recovery_instructions=(
                     "Relax the filters by increasing `max_rostered_pct` to 50.0 or lowering `min_yprr` to 1.50 "
                     "and re-run `discover_undervalued_waiver_wire_breakouts`."
@@ -349,10 +374,12 @@ def discover_undervalued_waiver_wire_breakouts(
                 "league_id": sleeper_ctx.get("league_id"),
                 "league_name": sleeper_ctx.get("league_name"),
                 "read_only_advisory_mode": True,
+                "recency_weighting_formula": "0.65 * Last_4_Games_L4 + 0.35 * Full_Season_Baseline",
                 "filter_criteria": validated.model_dump(),
                 "candidates_found": len(selected),
                 "breakout_candidates": selected,
                 "rostered_in_league_trade_targets": rostered_in_league,
+                "filtered_out_injured_or_inactive": filtered_out_injured_or_inactive,
             },
         ).model_dump()
         after_tool_outcome_callback(tool_name, raw_args, res)

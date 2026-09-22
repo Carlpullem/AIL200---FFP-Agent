@@ -143,15 +143,13 @@
           <table class="w-full text-left border-collapse text-xs">
             <thead>
               <tr class="border-b border-slate-800 text-[10px] uppercase text-slate-400">
-                <th class="py-2 px-2">Free Agent Player</th>
-                <th class="py-2 px-2">Global %</th>
-                <th class="py-2 px-2">Edge Score</th>
+                <th class="py-2 px-2">Healthy Active Free Agent</th>
+                <th class="py-2 px-2">NFL Health &amp; Depth</th>
+                <th class="py-2 px-2">Recency Score (65% L4)</th>
+                <th class="py-2 px-2">Last 4 Games (L4) Usage Trajectory</th>
+                <th class="py-2 px-2">L4 YPRR (vs Season)</th>
                 <th class="py-2 px-2">WOPR</th>
-                <th class="py-2 px-2">YPRR</th>
-                <th class="py-2 px-2">TPRR</th>
-                <th class="py-2 px-2">Routes %</th>
                 <th class="py-2 px-2">xFP Diff</th>
-                <th class="py-2 px-2">WoW Snap Δ</th>
                 <th class="py-2 px-2">Advisory Simulator</th>
               </tr>
             </thead>
@@ -175,6 +173,21 @@
         <div id="rosteredTradeTargetsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs"></div>
       </section>
 
+      <!-- Live Injury & Active Depth-Chart Gatekeeper Panel (Excluded IR / PUP / Off-Roster Players) -->
+      <section class="glass-card rounded-2xl p-4 shadow-xl border border-rose-500/30">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <h3 class="text-xs font-bold text-rose-300 uppercase tracking-wider">
+              🏥 Blocked by Live Injury &amp; Active 53-Man Depth Chart Gatekeeper (<code class="text-rose-200">/v1/players/nfl</code>)
+            </h3>
+            <p class="text-[11px] text-slate-400">
+              Players automatically <strong>excluded from Waiver Recommendations</strong> due to live <code class="text-rose-300">IR</code> / <code class="text-rose-300">PUP</code> / <code class="text-rose-300">Out</code> designations, being off the active 3-deep depth chart (e.g. Cedric Tillman, Ricky Pearsall), or suffering a negative Last 4 Games (<code class="text-rose-300">L4</code>) snap collapse.
+            </p>
+          </div>
+        </div>
+        <div id="filteredInjuredGrid" class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs"></div>
+      </section>
+
       <!-- Live OpenTelemetry & Structured JSON Telemetry Console -->
       <section class="glass-card rounded-2xl p-3.5 shadow-xl">
         <div class="flex items-center justify-between mb-1.5">
@@ -193,21 +206,21 @@
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-bold text-white">💬 Multi-Agent Fantasy Strategy Advisor</h2>
           <span class="text-[10px] font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-            Advisory Mode Only
+            65% L4 Recency + Live Injury Filter
           </span>
         </div>
         <p class="text-[11px] text-slate-400 mt-0.5">
-          Ask about waiver bids, trade packages, or start/sit decisions—grounded in your active league's live availability.
+          Ask about waiver bids, trade packages, or start/sit decisions—weighted 65% on the Last 3–4 Games (L4) and filtered against live NFL injuries.
         </p>
         <div class="flex flex-wrap gap-1.5 mt-2.5">
-          <button onclick="sendQuickPrompt('Who are the best available waiver wire breakouts in my league right now and how much FAAB should I bid?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-cyan-300 border border-slate-700">
-            💎 Best Available Waivers + FAAB
+          <button onclick="sendQuickPrompt('Who are the best healthy waiver wire breakouts based on the last 3-4 games?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-cyan-300 border border-slate-700">
+            💎 Top L4 Healthy Waivers + FAAB
+          </button>
+          <button onclick="sendQuickPrompt('Why are Ricky Pearsall and Cedric Tillman excluded from waivers?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-rose-300 border border-slate-700">
+            🏥 Check Pearsall / Tillman IR Status
           </button>
           <button onclick="sendQuickPrompt('What is Tucker Kraft status in my league and should I trade for him?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-amber-300 border border-slate-700">
             🔍 Check Tucker Kraft Status
-          </button>
-          <button onclick="sendQuickPrompt('What is Bucky Irving status in my league?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-emerald-300 border border-slate-700">
-            🚀 Check Bucky Irving Status
           </button>
           <button onclick="sendQuickPrompt('Evaluate a buy-low trade acquiring Chris Olave')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-purple-300 border border-slate-700">
             📈 Buy-Low Trade Architect
@@ -220,11 +233,10 @@
         <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-3.5 text-slate-200">
           <div class="flex items-center gap-2 mb-1.5">
             <span class="px-2 py-0.5 rounded text-[10px] font-bold pro-badge text-white">FantasyFootballEdgeCoordinator</span>
-            <span class="text-[10px] text-emerald-400 font-mono">🔒 Read-Only Advisory Mode</span>
+            <span class="text-[10px] text-emerald-400 font-mono">🔒 Read-Only Advisory • 65% L4 Recency • Live Injury Gatekeeper</span>
           </div>
           <p class="leading-relaxed">
-            Welcome to <strong>Gridiron Edge AI</strong>, Carl! Your 4 Sleeper leagues (<code class="text-cyan-300">The London League</code>, <code class="text-cyan-300">CClub League</code>, <code class="text-cyan-300">Top Chops</code>, and <code class="text-cyan-300">Judgey Best Ball</code>) are synced in <strong>100% Read-Only Advisory Mode</strong>.
-            Select any league in the top bar to filter waivers by real roster availability and ask any question below!
+            Welcome to <strong>Gridiron Edge AI</strong>, Carl! All recommendations now enforce our <strong>Live NFL Injury &amp; Active Depth-Chart Gatekeeper</strong> (excluding <code class="text-rose-300">IR</code> / <code class="text-rose-300">PUP</code> / off-roster players like Ricky Pearsall &amp; Cedric Tillman) and weight metrics <strong>65% on the Last 3–4 Games (<code class="text-cyan-300">L4</code>)</strong> to catch real-time role expansions before box-score points spike!
           </p>
         </div>
       </div>
@@ -234,7 +246,7 @@
         <input
           id="chatInput"
           type="text"
-          placeholder="Ask about any player, waiver bid, trade offer, or start/sit decision..."
+          placeholder="Ask about any player, L4 usage trend, injury status, waiver bid, or trade..."
           class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
         />
         <button
@@ -330,30 +342,41 @@
       const json = await res.json();
       const players = (json.data && json.data.breakout_candidates) || [];
       const rosteredTargets = (json.data && json.data.rostered_in_league_trade_targets) || [];
+      const filteredInjured = (json.data && json.data.filtered_out_injured_or_inactive) || [];
 
-      document.getElementById('waiverCountBadge').textContent = `${players.length} Unrostered Free Agents in ${json.data?.league_name || 'League'}`;
+      document.getElementById('waiverCountBadge').textContent = `${players.length} Healthy Active Free Agents in ${json.data?.league_name || 'League'}`;
 
       const tbody = document.getElementById('breakoutTableBody');
       tbody.innerHTML = players.map(p => {
         const deltaColor = p.xfp_regression_delta >= 0 ? 'text-emerald-400' : 'text-rose-400';
         const deltaSign = p.xfp_regression_delta >= 0 ? '+' : '';
         const recBid = Math.max(2, Math.round(currentLeagueFaab * 0.18));
+        const l4DeltaSign = (p.l4_route_delta_pct || 0) >= 0 ? '+' : '';
+        const yprrDeltaSign = (p.l4_yprr_delta || 0) >= 0 ? '+' : '';
         return `
           <tr class="hover:bg-slate-900/70 transition">
             <td class="py-2.5 px-2">
               <div class="font-bold text-white">${p.name} <span class="text-[10px] font-mono text-cyan-400">${p.position} • ${p.team}</span></div>
-              <div class="text-[10px] text-emerald-400 font-semibold">🟢 Unrostered Free Agent in League</div>
+              <div class="text-[10px] text-emerald-400 font-semibold">🟢 Unrostered in League (${p.sleeper_rostered_pct}% Global)</div>
             </td>
-            <td class="py-2.5 px-2 font-mono text-slate-200">${p.sleeper_rostered_pct}%</td>
+            <td class="py-2.5 px-2">
+              <span class="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-[10px] font-bold">
+                🟢 Active ${p.position}${p.depth_chart_order || 1}
+              </span>
+            </td>
             <td class="py-2.5 px-2">
               <span class="px-2 py-0.5 rounded-full text-[11px] font-bold edge-badge text-slate-950">${p.edge_breakout_score}</span>
             </td>
+            <td class="py-2.5 px-2">
+              <div class="font-mono text-[11px] text-cyan-300 font-semibold">${p.l4_weekly_trajectory || ''}</div>
+              <div class="text-[10px] text-emerald-400 font-mono">${l4DeltaSign}${p.l4_route_delta_pct || 0}% L4 Surge</div>
+            </td>
+            <td class="py-2.5 px-2">
+              <div class="font-mono font-bold text-white">${p.l4_yprr || p.pff_yprr} <span class="text-[10px] text-emerald-400">(${yprrDeltaSign}${p.l4_yprr_delta || 0})</span></div>
+              <div class="text-[10px] text-slate-400 font-mono">Season: ${p.season_yprr || p.pff_yprr}</div>
+            </td>
             <td class="py-2.5 px-2 font-mono font-semibold text-cyan-300">${p.playerprofiler_wopr}</td>
-            <td class="py-2.5 px-2 font-mono text-slate-200">${p.pff_yprr}</td>
-            <td class="py-2.5 px-2 font-mono text-slate-200">${p.pff_tprr}%</td>
-            <td class="py-2.5 px-2 font-mono text-slate-200">${p.fantasypoints_route_participation_pct}%</td>
             <td class="py-2.5 px-2 font-mono font-bold ${deltaColor}">${deltaSign}${p.xfp_regression_delta} PPG</td>
-            <td class="py-2.5 px-2 font-mono text-emerald-300">${p.playerprofiler_snap_delta_wow_pct >= 0 ? '+' : ''}${p.playerprofiler_snap_delta_wow_pct}%</td>
             <td class="py-2.5 px-2">
               <button onclick="openHitlModal('${p.name.replace(/'/g, "\\'")}', ${recBid}, '${currentDropCandidate.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px]">
                 Simulate FAAB
@@ -376,9 +399,10 @@
           <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex flex-col justify-between gap-2">
             <div>
               <div class="flex items-center justify-between gap-2">
-                <span class="font-bold text-white">${r.name} <span class="text-cyan-400 font-mono text-[10px]">${r.position} • ${r.team}</span></span>
-                <span class="font-mono text-[11px] text-emerald-400">+${r.xfp_regression_delta} xFP/G • ${r.pff_yprr} YPRR</span>
+                <span class="font-bold text-white">${r.name} <span class="text-cyan-400 font-mono text-[10px]">${r.position} • ${r.team} (Active #${r.depth_chart_order || 1})</span></span>
+                <span class="font-mono text-[11px] text-emerald-400">L4 YPRR: ${r.l4_yprr || r.pff_yprr}</span>
               </div>
+              <div class="text-[10px] text-slate-400 font-mono mt-0.5">L4 Trend: ${r.l4_weekly_trajectory || ''}</div>
               <div class="mt-1.5">${statusBadge}</div>
             </div>
             <div class="flex items-center justify-between pt-1 border-t border-slate-800/80">
@@ -389,8 +413,25 @@
         `;
       }).join('');
 
+      const injuredGrid = document.getElementById('filteredInjuredGrid');
+      if (injuredGrid) {
+        injuredGrid.innerHTML = filteredInjured.map(i => `
+          <div class="bg-rose-950/25 border border-rose-500/30 rounded-xl p-3 flex flex-col justify-between gap-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold text-rose-200">${i.name} <span class="text-rose-400 font-mono text-[10px]">${i.position} • ${i.team}</span></span>
+              <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold">
+                ${i.injury_status || i.nfl_roster_status || 'Excluded'}
+              </span>
+            </div>
+            <div class="text-[11px] text-rose-300 font-semibold">${i.exclusion_reason || ''}</div>
+            <div class="text-[10px] text-slate-400 font-mono">Last 4 Games (L4): ${i.l4_weekly_trajectory || ''} | Season YPRR was ${i.season_yprr || i.pff_yprr}</div>
+          </div>
+        `).join('');
+      }
+
       refreshTelemetry();
     }
+
 
     function formatMarkdown(md) {
       return md

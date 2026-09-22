@@ -124,7 +124,11 @@ def _handle_get_route(path: str, query_params: Dict[str, List[str]]) -> tuple[in
             res["data"]["rostered_in_league_trade_targets"] = [
                 _enrich_candidate_for_ui(c) for c in res["data"].get("rostered_in_league_trade_targets", [])
             ]
+            res["data"]["filtered_out_injured_or_inactive"] = [
+                _enrich_candidate_for_ui(c) for c in res["data"].get("filtered_out_injured_or_inactive", [])
+            ]
         return 200, "application/json", json.dumps(res).encode("utf-8")
+
 
     if path.startswith("/api/league/") or path.startswith("/api/sleeper/league/"):
         raw_id = path.split("/league/", 1)[1] if "/league/" in path else "1389351355675586560"

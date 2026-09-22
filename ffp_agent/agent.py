@@ -377,7 +377,7 @@ def execute_agentic_workflow(
                 f"**{top_c['yprr']} YPRR**, **{top_c['wopr']} WOPR**, and **{top_c['median_projection']} Median Expected Fantasy Points (`xFP`)** (`nflfastR` EPA/Play advantage)."
             )
 
-        # Branch D: Deep Single-Player Spotlight & FAAB / Ownership Status
+        # Branch D: Deep Single-Player Spotlight & FAAB / Ownership / Injury Status
         elif len(mentioned_players) == 1 and "waiver" not in q_lower and "breakout" not in q_lower:
             p_name = mentioned_players[0]
             tel_res = fetch_nflverse_player_sabermetric_telemetry(player_name=p_name, scoring_format=scoring_format)
@@ -391,7 +391,12 @@ def execute_agentic_workflow(
             d = tel_res["data"]
             pid = str(d.get("player_id", ""))
             owner_entry = ownership_map.get(pid)
-            if owner_entry:
+            if not d.get("is_waiver_eligible_healthy", True):
+                avail_banner = (
+                    f"🚫 **LIVE INJURY / DEPTH CHART GATEKEEPER (`{league_name}`)**: "
+                    f"**EXCLUDED FROM WAIVERS — {d.get('exclusion_reason')}**"
+                )
+            elif owner_entry:
                 if owner_entry.get("is_user"):
                     avail_banner = f"✅ **LEAGUE STATUS (`{league_name}`)**: **ALREADY ON YOUR ROSTER (`{user_team_name}`)** — Hold / Start!"
                 else:
@@ -400,37 +405,48 @@ def execute_agentic_workflow(
                         "— Not on waivers; target via **Buy-Low Trade**!"
                     )
             else:
-                avail_banner = f"🟢 **LEAGUE STATUS (`{league_name}`)**: **100% AVAILABLE ON WAIVERS (FREE AGENT)**"
+                avail_banner = (
+                    f"🟢 **LEAGUE STATUS (`{league_name}`)**: **100% AVAILABLE ON WAIVERS** "
+                    f"(`NFL Status: {d.get('nfl_roster_status')}` | `Depth Chart: #{d.get('depth_chart_order')}` | `Injury: Healthy`)"
+                )
 
             tiers = faab_res["data"]["bid_tiers"]
             response_md = (
                 f"### 🔬 Deep Sabermetric Scouting Dossier: **{d['player_name']} ({d['team']} - {d['position']})**\n\n"
                 f"- {avail_banner}\n"
-                f"- **Sleeper Global Ownership**: **{d['rostered_pct_sleeper']}% Rostered** | **FantasyPros ROS Rank**: **{d['position']}{d['fantasypros_ecr_pos_rank']}**\n"
-                f"- **Snap Share & Momentum**: **{d['snap_share_pct']}% Snap Share** (**+{d['snap_share_delta_wow_pct']}% WoW Delta**) | **Red-Zone Share**: **{d['red_zone_touch_share_pct']}%**\n"
+                f"- **Last 4 Games (`L4`) Recency Trend (65% Weight)**: **{d.get('recency_trend_badge')}** | **4-Week Trajectory**: `{d.get('l4_weekly_trajectory')}`\n"
+                f"- **Recency vs. Season Efficiency**: **L4 YPRR: {d.get('l4_yprr')}** (vs `{d.get('season_yprr')}` Season, **{d.get('l4_yprr_delta', 0.0):+.2f} Δ**) | **L4 Route/Snap %: {d.get('l4_route_participation_pct')}%** (**{d.get('l4_route_delta_pct', 0.0):+.1f}% L4 Surge**)\n"
                 f"- **Route & Target Efficiency (`nflverse` / `FantasyPoints`)**: **{d['route_participation_pct']}% Route Participation** | **{d['yards_per_route_run_yprr']} YPRR** | **{d['targets_per_route_run_tprr']} TPRR** | **{d['wopr']} WOPR** | **{d['first_read_target_share_pct']}% First-Read Share**\n"
                 f"- **Expected Fantasy Points (`xFP`) Regression**: **{d['expected_fantasy_points_ppr_pg']} xFP/G** vs **{d['actual_fantasy_points_ppr_pg']} Actual PPG** (**{d['xfp_differential_ppr']:+.1f} PPR/G Differential** | `EPA/Play`: **{d['epa_per_play']:+.2f}**)\n"
                 f"- **Role Catalyst**: *{d['injury_or_depth_chart_catalyst']}*\n\n"
                 f"#### 💰 Advisory FAAB Valuation (Read-Only Strategy for Your ${league_faab} `{league_name}` Budget)\n"
-                f"- **Conservative Stash Bid**: **${tiers['conservative_stash']['dollar_bid']}** ({tiers['conservative_stash']['pct_of_remaining_faab']}% FAAB)\n"
-                f"- **Optimal Game-Theory Bid**: **${tiers['optimal_game_theory']['dollar_bid']}** ({tiers['optimal_game_theory']['pct_of_remaining_faab']}% FAAB — *76% Win Probability*)\n"
-                f"- **Aggressive Must-Win Bid**: **${tiers['aggressive_must_win']['dollar_bid']}** ({tiers['aggressive_must_win']['pct_of_remaining_faab']}% FAAB)\n"
+                + (
+                    f"- 🚫 **Recommended Bid: $0 (DO NOT BID)** — Player is currently **{d.get('exclusion_reason')}**.\n"
+                    if not d.get("is_waiver_eligible_healthy", True)
+                    else (
+                        f"- **Conservative Stash Bid**: **${tiers['conservative_stash']['dollar_bid']}** ({tiers['conservative_stash']['pct_of_remaining_faab']}% FAAB)\n"
+                        f"- **Optimal Game-Theory Bid**: **${tiers['optimal_game_theory']['dollar_bid']}** ({tiers['optimal_game_theory']['pct_of_remaining_faab']}% FAAB — *76% Win Probability*)\n"
+                        f"- **Aggressive Must-Win Bid**: **${tiers['aggressive_must_win']['dollar_bid']}** ({tiers['aggressive_must_win']['pct_of_remaining_faab']}% FAAB)\n"
+                    )
+                )
             )
 
-        # Branch E: Comprehensive Waiver Breakout Radar + Live League Roster Filtering
+        # Branch E: Comprehensive Waiver Breakout Radar + Live Injury Filter + L4 Recency Weighting
         else:
             breakout_res = discover_undervalued_waiver_wire_breakouts(
                 position=pos_filter,
                 max_rostered_pct=35.0,
-                min_route_participation_pct=50.0,
+                min_route_participation_pct=45.0,
                 min_yprr=1.60,
-                top_k=6,
+                top_k=8,
                 league_id=league_id,
             )
+
             candidates_list = breakout_res["data"]["breakout_candidates"]
             rostered_targets = breakout_res["data"].get("rostered_in_league_trade_targets", [])
-            primary_name = candidates_list[0]["player_name"] if candidates_list else "Jalen McMillan"
-            secondary_name = candidates_list[1]["player_name"] if len(candidates_list) > 1 else "Cedric Tillman"
+            filtered_injured = breakout_res["data"].get("filtered_out_injured_or_inactive", [])
+            primary_name = candidates_list[0]["player_name"] if candidates_list else "Tre Tucker"
+            secondary_name = candidates_list[1]["player_name"] if len(candidates_list) > 1 else "Emanuel Wilson"
 
             faab_primary = calculate_optimal_faab_waiver_bid(player_name=primary_name, remaining_faab_budget=league_faab)
             faab_secondary = calculate_optimal_faab_waiver_bid(player_name=secondary_name, remaining_faab_budget=league_faab)
@@ -445,7 +461,7 @@ def execute_agentic_workflow(
             b_tiers = faab_primary["data"]["bid_tiers"]
             m_tiers = faab_secondary["data"]["bid_tiers"]
             table_rows = "\n".join(
-                f"| **{c['player_name']} ({c['team']} - {c['position']})** | 🟢 **Free Agent** ({c['rostered_pct_sleeper']}%) | {c['snap_share_pct']}% (**+{c['snap_share_delta_wow_pct']}%**) | {c['route_participation_pct']}% | **{c['yards_per_route_run_yprr']}** | **{c['wopr']}** | **{c['expected_fantasy_points_ppr_pg']}** ({c['actual_fantasy_points_ppr_pg']}) | **+{c['xfp_differential_ppr']}** | **{c['breakout_composite_score']}** |"
+                f"| **{c['player_name']} ({c['team']} - {c['position']})** | 🟢 **Active #{c.get('depth_chart_order', 1)}** | `{c.get('l4_weekly_trajectory')}` (**+{c.get('l4_route_delta_pct')}%**) | **{c.get('l4_yprr')}** ({c.get('season_yprr')}) | **{c['wopr']}** | **{c['expected_fantasy_points_ppr_pg']}** ({c['actual_fantasy_points_ppr_pg']}) | **+{c['xfp_differential_ppr']}** | **{c['breakout_composite_score']}** |"
                 for c in candidates_list
             )
             rostered_notes = ""
@@ -453,9 +469,9 @@ def execute_agentic_workflow(
                 owned_bullets = "\n".join(
                     f"- **{r['player_name']} ({r['team']} - {r['position']})**: "
                     + (
-                        f"✅ **Already on YOUR roster (`{r['owned_by_team']}`)** — Do not drop!"
+                        f"✅ **Already on YOUR roster (`{r['owned_by_team']}`)** — Hold (`L4 Trend: {r.get('l4_weekly_trajectory')}`)"
                         if r.get("league_availability_status") == "ON_YOUR_ROSTER"
-                        else f"🔒 **Rostered by `{r['owned_by_manager']}` (`{r['owned_by_team']}`)** — Excluded from waivers; target via **Buy-Low Trade** (`+{r['xfp_differential_ppr']} xFP diff`, `{r['yards_per_route_run_yprr']} YPRR`)."
+                        else f"🔒 **Rostered by `{r['owned_by_manager']}` (`{r['owned_by_team']}`)** — Target via **Buy-Low Trade** (`L4 YPRR: {r.get('l4_yprr')}`, `+{r['xfp_differential_ppr']} xFP diff`)."
                     )
                     for r in rostered_targets[:4]
                 )
@@ -464,24 +480,37 @@ def execute_agentic_workflow(
                     f"{owned_bullets}\n"
                 )
 
+            injured_notes = ""
+            if filtered_injured:
+                inj_bullets = "\n".join(
+                    f"- **{i['player_name']} ({i['team']} - {i['position']})**: {i.get('exclusion_reason')} — *L4 Trend: `{i.get('l4_weekly_trajectory')}`*"
+                    for i in filtered_injured[:4]
+                )
+                injured_notes = (
+                    "\n\n#### 🏥 Automatically Excluded by Live Injury & Active Depth-Chart Gatekeeper (`/v1/players/nfl`)\n"
+                    f"{inj_bullets}\n"
+                )
+
             response_md = (
-                f"### 🚨 Live Waiver Wire Breakout Radar — `{league_name}` (`Position: {pos_filter}`)\n\n"
-                f"**Team**: `{user_team_name}` | **Remaining FAAB**: **${league_faab}** | **Mode**: `🔒 Read-Only Advisory`\n\n"
-                "| Player (Team - Pos) | League Status (Global %) | Snap Share (WoW Delta) | Route Part % | YPRR | WOPR | xFP/G (Actual) | xFP Diff | Breakout Score |\n"
-                "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n"
+                f"### 🚨 Live Waiver Wire Breakout Radar — `{league_name}` (`65% Last 4 Games Recency Weight`)\n\n"
+                f"**Team**: `{user_team_name}` | **Remaining FAAB**: **${league_faab}** | **Gatekeeper**: `🏥 IR/PUP/Off-Depth-Chart Excluded`\n\n"
+                "| Player (Team - Pos) | NFL Health & Depth | Last 4 Games (`L4`) Usage Trajectory | L4 YPRR (Season) | WOPR | xFP/G (Actual) | xFP Diff | Recency Score |\n"
+                "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n"
                 f"{table_rows}"
-                f"{rostered_notes}\n"
+                f"{rostered_notes}"
+                f"{injured_notes}\n"
                 "---\n\n"
                 f"### 💰 Advisory Game-Theory FAAB Bid Ladder (Calibrated to Your ${league_faab} `{league_name}` Budget)\n\n"
-                f"1. **{primary_name}** *(100% Unrostered Free Agent in `{league_name}`)*\n"
+                f"1. **{primary_name}** *(Healthy Active Depth Chart + Surging L4 Usage in `{league_name}`)*\n"
                 f"   - **Conservative Bid**: **${b_tiers['conservative_stash']['dollar_bid']}** ({b_tiers['conservative_stash']['pct_of_remaining_faab']}% FAAB)\n"
                 f"   - **Optimal Game-Theory Bid**: **${b_tiers['optimal_game_theory']['dollar_bid']}** ({b_tiers['optimal_game_theory']['pct_of_remaining_faab']}% FAAB — *76% Win Prob*)\n"
                 f"   - **Aggressive Must-Win Bid**: **${b_tiers['aggressive_must_win']['dollar_bid']}** ({b_tiers['aggressive_must_win']['pct_of_remaining_faab']}% FAAB)\n\n"
-                f"2. **{secondary_name}** *(100% Unrostered Free Agent in `{league_name}`)*\n"
+                f"2. **{secondary_name}** *(Healthy Active Depth Chart + Surging L4 Usage in `{league_name}`)*\n"
                 f"   - **Conservative Bid**: **${m_tiers['conservative_stash']['dollar_bid']}** ({m_tiers['conservative_stash']['pct_of_remaining_faab']}% FAAB)\n"
                 f"   - **Optimal Game-Theory Bid**: **${m_tiers['optimal_game_theory']['dollar_bid']}** ({m_tiers['optimal_game_theory']['pct_of_remaining_faab']}% FAAB)\n"
                 f"   - **Aggressive Must-Win Bid**: **${m_tiers['aggressive_must_win']['dollar_bid']}** ({m_tiers['aggressive_must_win']['pct_of_remaining_faab']}% FAAB)\n"
             )
+
 
         # Step 5: Post-Generation Self-Evaluation Rubric (`StrategyQualityLoopAgent` verification)
         self_eval = evaluate_output_self_eval_rubric(response_md)

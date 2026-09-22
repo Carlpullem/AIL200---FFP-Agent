@@ -442,12 +442,69 @@ class PlayerAdvancedMetricsProfile(BaseModel):
     )
     breakout_composite_score: float = Field(
         ...,
-        description="0-100 composite predictive breakout score computed from leading usage indicators.",
+        description="0-100 composite predictive breakout score computed from 65% Last 3-4 Games (L4) + 35% Season baseline.",
     )
     injury_or_depth_chart_catalyst: str = Field(
         ...,
         description="Context explaining why usage is shifting (e.g., rookie post-bye bump, starter injury).",
     )
+    nfl_roster_status: str = Field(
+        default="Active",
+        description="Live NFL 53-man roster status ('Active', 'Inactive', 'Off Depth Chart').",
+    )
+    injury_status: Optional[str] = Field(
+        default=None,
+        description="Live NFL injury designation (None/'Healthy', 'Questionable', 'Doubtful', 'Out', 'IR', 'PUP').",
+    )
+    injury_body_part: Optional[str] = Field(
+        default=None,
+        description="Specific injury details from Sleeper/nflverse (e.g. 'Knee - PCL', 'Pectoral').",
+    )
+    depth_chart_order: Optional[int] = Field(
+        default=1,
+        description="Current NFL team depth chart order (1=Starter, 2=WR2/RB2, 3=WR3/RB3, None=Off Active Depth Chart).",
+    )
+    is_waiver_eligible_healthy: bool = Field(
+        default=True,
+        description="True ONLY if player is Active, NOT on IR/PUP/Out/Doubtful, and on the active depth chart (depth_chart_order 1-3).",
+    )
+    exclusion_reason: Optional[str] = Field(
+        default=None,
+        description="Exact reason why player is excluded from actionable waiver recommendations (e.g., 'IR (Knee - PCL)', 'Off Active Depth Chart').",
+    )
+    season_yprr: float = Field(
+        default=1.95,
+        description="Full-season baseline Yards Per Route Run (35% weight).",
+    )
+    l4_yprr: float = Field(
+        default=2.35,
+        description="Last 3-4 games rolling Yards Per Route Run (65% recency weight).",
+    )
+    l4_yprr_delta: float = Field(
+        default=0.40,
+        description="YPRR acceleration over the last 3-4 games vs season baseline.",
+    )
+    season_route_participation_pct: float = Field(
+        default=65.0,
+        description="Full-season baseline route participation % (35% weight).",
+    )
+    l4_route_participation_pct: float = Field(
+        default=82.0,
+        description="Last 3-4 games rolling route participation % (65% recency weight).",
+    )
+    l4_route_delta_pct: float = Field(
+        default=17.0,
+        description="Percentage-point jump in route participation / snap share over the last 3-4 games.",
+    )
+    l4_weekly_trajectory: str = Field(
+        default="62% → 71% → 79% → 85%",
+        description="4-game week-by-week usage progression string (Last 4 Games).",
+    )
+    recency_trend_badge: str = Field(
+        default="🔥 SURGING (+17.0% L4 Role Expansion)",
+        description="Recency trend badge highlighting last 3-4 game usage trajectory.",
+    )
+
 
 
 class ToolResultEnvelope(BaseModel):

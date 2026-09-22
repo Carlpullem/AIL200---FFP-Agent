@@ -3,207 +3,266 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gridiron Edge AI — NFL Fantasy Sabermetric Multi-Agent War Room</title>
+  <title>Gridiron Edge AI — NFL Fantasy Football Sabermetric War Room</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
-      background: radial-gradient(circle at top left, #0b1528 0%, #050914 60%, #03060c 100%);
-      color: #e2e8f0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at top left, #0f172a 0%, #020617 65%, #000000 100%);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
     .glass-card {
-      background: rgba(15, 23, 42, 0.78);
+      background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(51, 65, 85, 0.65);
     }
     .edge-badge {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
     }
     .pro-badge {
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
     }
     .flash-badge {
-      background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+      background: linear-gradient(135deg, #0ea5e9 0%, #10b981 100%);
     }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col">
-  <!-- Top Header -->
-  <header class="border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-30 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
-        🏈
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-lg font-extrabold tracking-tight text-white">Gridiron Edge AI</h1>
-          <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-            ADK 2.0 Multi-Agent
-          </span>
-          <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-            nflverse + Sleeper Live
-          </span>
-        </div>
-        <p class="text-xs text-slate-400">
-          Aggregating <span class="text-cyan-300 font-medium">nflreadpy / nflfastR</span> (EPA, xYAC, WOPR, ff_opportunity xFP) • <span class="text-emerald-300 font-medium">PFF</span> (YPRR, TPRR) • <span class="text-indigo-300 font-medium">FantasyPros ECR</span> • <span class="text-amber-300 font-medium">PlayerProfiler</span>
-        </p>
-      </div>
-    </div>
+<body class="text-slate-100 min-h-screen flex flex-col">
 
-    <!-- Sleeper League Sync Controls -->
-    <div class="flex items-center gap-2">
-      <div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs">
-        <span class="text-slate-400 mr-2">Sleeper ID / User:</span>
-        <input id="sleeperInput" type="text" value="carlpullem" class="bg-transparent text-white font-mono focus:outline-none w-36" />
+  <!-- Top Navigation & Multi-League Switcher Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-40 px-6 py-3">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl edge-badge flex items-center justify-center text-slate-950 font-black text-xl shadow-lg">
+          🏈
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-extrabold text-lg tracking-tight text-white">Gridiron Edge AI</h1>
+            <span class="px-2 py-0.5 text-[10px] font-mono uppercase font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              🔒 100% Read-Only Advisory Sandbox (Never Modifies Sleeper)
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">
+            Open-Source <code class="text-cyan-400">nflverse</code> (<code class="text-cyan-400">nflreadpy</code> / <code class="text-cyan-400">nflfastR</code>) + Live Sleeper Multi-League Roster Filter
+          </p>
+        </div>
       </div>
-      <select id="scoringSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
-        <option value="ppr">1.0 PPR</option>
-        <option value="half_ppr">0.5 PPR</option>
-        <option value="superflex_tep">Superflex / TE-Prem</option>
-      </select>
-      <button onclick="syncSleeperLeague()" class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow">
-        Sync League & FAAB
-      </button>
+
+      <!-- Multi-League Selector & Custom URL Input -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5">
+          <span class="text-[11px] font-semibold text-slate-400">Your Sleeper Leagues:</span>
+          <select id="leaguePresetSelect" onchange="onLeaguePresetChange()" class="bg-transparent text-xs font-bold text-emerald-300 focus:outline-none cursor-pointer">
+            <option value="1389351355675586560" selected>🇬🇧 The London League (12-Team • 0.5 PPR • $100 FAAB)</option>
+            <option value="1389692936198819840">🏆 CClub League (12-Team • 0.5 PPR • $100 FAAB)</option>
+            <option value="1387700465294135296">🪓 Top Chops (18-Team Guillotine • 1.0 PPR • $1,000 FAAB)</option>
+            <option value="1389346051961389056">🎲 Judgey Best Ball (4-Team • 0.5 PPR)</option>
+          </select>
+        </div>
+
+        <input
+          id="sleeperInput"
+          type="text"
+          value="1389351355675586560"
+          placeholder="Paste Sleeper League URL or ID..."
+          class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white w-56 font-mono focus:outline-none focus:border-cyan-400"
+        />
+
+        <select id="scoringSelect" onchange="syncAllForActiveLeague()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200">
+          <option value="HALF_PPR" selected>0.5 PPR</option>
+          <option value="PPR">1.0 PPR</option>
+          <option value="STANDARD">Standard</option>
+          <option value="TE_PREMIUM">TE Premium</option>
+        </select>
+
+        <button
+          onclick="syncAllForActiveLeague()"
+          class="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow"
+        >
+          ⚡ Sync Live League Rosters
+        </button>
+      </div>
     </div>
   </header>
 
-  <!-- Main Content Grid -->
-  <main class="flex-1 max-w-[1600px] w-full mx-auto px-6 py-5 grid grid-cols-1 lg:grid-cols-12 gap-5">
-    
-    <!-- Left 7 Columns: Sabermetric Breakout Table + League FAAB Context -->
-    <div class="lg:col-span-7 flex flex-col gap-5">
-      
-      <!-- League Snapshot Strip -->
-      <div class="glass-card rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <h2 class="text-sm font-bold text-white flex items-center gap-2">
-              <span>📊 Sleeper League & Rival FAAB Intelligence</span>
-              <span id="leagueTitleBadge" class="text-xs font-normal text-cyan-400"></span>
-            </h2>
-          </div>
-          <span class="text-xs text-emerald-400 font-mono" id="userFaabBadge">Your Remaining FAAB: $68 / $100</span>
-        </div>
-        <div id="rivalFaabGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs"></div>
-      </div>
+  <!-- Main 12-Column War Room Grid -->
+  <main class="max-w-[1600px] w-full mx-auto px-6 py-5 grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
 
-      <!-- Multi-Source Breakout Waiver Radar -->
-      <div class="glass-card rounded-2xl p-4 flex-1 flex flex-col">
+    <!-- Left 7 Columns: League Context, Unrostered Breakout Radar, Rostered Trade Targets, & Telemetry -->
+    <div class="lg:col-span-7 flex flex-col gap-4">
+
+      <!-- Active League & Your Team Roster Banner -->
+      <section class="glass-card rounded-2xl p-4 shadow-xl">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
-            <h2 class="text-sm font-bold text-white">🚀 Pre-Breakout Waiver & Buy-Low Radar (nflverse + PFF + FantasyPoints + PlayerProfiler)</h2>
-            <p class="text-[11px] text-slate-400">Sorted by Composite Edge Breakout Score — Spot high-WOPR / positive-xFP players before box-score points catch up</p>
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Live Sleeper League Sync</span>
+            <span id="leagueTitleBadge" class="text-xs font-semibold text-slate-200 ml-1">— The London League</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="userTeamBadge" class="px-2.5 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-bold text-xs">
+              Team: 3 rings - Come at me
+            </span>
+            <span id="userFaabBadge" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-xs">
+              Remaining FAAB: $100 / $100
+            </span>
+          </div>
+        </div>
+
+        <!-- Your Active Roster Strip -->
+        <div class="mb-3 bg-slate-900/80 border border-slate-800 rounded-xl p-2.5">
+          <div class="text-[11px] font-bold text-slate-400 uppercase mb-1">Your Current Active Roster in Selected League (<code class="text-emerald-300">CarlPullem94</code>):</div>
+          <div id="userRosterPills" class="flex flex-wrap gap-1.5 text-[11px]"></div>
+        </div>
+
+        <!-- Rival FAAB Leaderboard -->
+        <div class="text-[11px] font-semibold text-slate-400 mb-1.5">Rival Managers' Remaining FAAB &amp; Positional Needs:</div>
+        <div id="rivalFaabGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"></div>
+      </section>
+
+      <!-- True Unrostered Waiver Breakout Radar -->
+      <section class="glass-card rounded-2xl p-4 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <span>🟢 True Unrostered Waiver Wire Breakouts</span>
+              <span id="waiverCountBadge" class="px-2 py-0.5 text-[10px] rounded-full bg-emerald-500/20 text-emerald-300 font-mono">100% Free Agents in League</span>
+            </h2>
+            <p class="text-[11px] text-slate-400">
+              Cross-referenced against all rosters in the selected Sleeper league — anyone owned by you or a rival is automatically excluded below.
+            </p>
           </div>
           <div class="flex items-center gap-1.5">
-            <button onclick="loadBreakouts('ALL', 100)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">All Catalog</button>
-            <button onclick="loadBreakouts('ALL', 35)" class="px-2.5 py-1 rounded text-xs bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-semibold">&lt;35% Owned Gems</button>
-            <button onclick="loadBreakouts('WR', 40)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">WR</button>
-            <button onclick="loadBreakouts('RB', 40)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">RB</button>
-            <button onclick="loadBreakouts('TE', 40)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">TE</button>
+            <button onclick="loadBreakouts('ALL')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-cyan-300">All Free Agents</button>
+            <button onclick="loadBreakouts('RB')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-200">RB</button>
+            <button onclick="loadBreakouts('WR')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-200">WR</button>
+            <button onclick="loadBreakouts('TE')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-200">TE</button>
           </div>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
-                <th class="py-2 px-2">Player</th>
-                <th class="py-2 px-2">Own%</th>
+              <tr class="border-b border-slate-800 text-[10px] uppercase text-slate-400">
+                <th class="py-2 px-2">Free Agent Player</th>
+                <th class="py-2 px-2">Global %</th>
                 <th class="py-2 px-2">Edge Score</th>
-                <th class="py-2 px-2" title="Weighted Opportunity Rating (1.5*TargetShare + 0.7*AirYardsShare)">WOPR</th>
-                <th class="py-2 px-2" title="PFF Yards Per Route Run">YPRR</th>
-                <th class="py-2 px-2" title="Targets Per Route Run %">TPRR%</th>
-                <th class="py-2 px-2" title="Route Participation %">Routes%</th>
-                <th class="py-2 px-2" title="nflverse ff_opportunity Expected FP minus Actual FP">xFP Delta</th>
-                <th class="py-2 px-2" title="Week-over-Week Snap Share Delta">Snap Δ</th>
-                <th class="py-2 px-2">Action</th>
+                <th class="py-2 px-2">WOPR</th>
+                <th class="py-2 px-2">YPRR</th>
+                <th class="py-2 px-2">TPRR</th>
+                <th class="py-2 px-2">Routes %</th>
+                <th class="py-2 px-2">xFP Diff</th>
+                <th class="py-2 px-2">WoW Snap Δ</th>
+                <th class="py-2 px-2">Advisory Simulator</th>
               </tr>
             </thead>
             <tbody id="breakoutTableBody" class="divide-y divide-slate-800/60"></tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      <!-- Live AgentOps Telemetry & OpenTelemetry Trace Inspector -->
-      <div class="glass-card rounded-2xl p-4">
+      <!-- Already Rostered in This League (Excluded from Waivers -> Trade Targets & Owned Breakouts) -->
+      <section class="glass-card rounded-2xl p-4 shadow-xl border border-amber-500/30">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">
-            🔍 AgentOps Observability: Intent-vs-Outcome Logs, OpenTelemetry Spans &amp; PII Scrubber
-          </h3>
-          <button onclick="refreshTelemetry()" class="text-[11px] text-slate-400 hover:text-white underline">Refresh Stream</button>
+          <div>
+            <h3 class="text-xs font-bold text-amber-300 uppercase tracking-wider">
+              🔒 Already Rostered in This League (Excluded from Waivers → Buy-Low Trade Targets)
+            </h3>
+            <p class="text-[11px] text-slate-400">
+              High-scoring sabermetric breakouts that are <strong>already owned</strong> in your selected Sleeper league (e.g. Tucker Kraft, Bucky Irving, Tank Bigsby).
+            </p>
+          </div>
         </div>
-        <div id="telemetryLogBox" class="bg-slate-950/90 rounded-xl p-3 font-mono text-[11px] text-slate-300 h-36 overflow-y-auto space-y-1.5 border border-slate-800"></div>
-      </div>
+        <div id="rosteredTradeTargetsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs"></div>
+      </section>
+
+      <!-- Live OpenTelemetry & Structured JSON Telemetry Console -->
+      <section class="glass-card rounded-2xl p-3.5 shadow-xl">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            🔭 Live AgentOps OpenTelemetry &amp; Structured JSON Log Stream (<code class="text-emerald-400">TOOL_INTENT</code> / <code class="text-cyan-400">TOOL_OUTCOME</code>)
+          </span>
+          <button onclick="refreshTelemetry()" class="text-[10px] text-cyan-400 hover:underline">Refresh Logs</button>
+        </div>
+        <div id="telemetryLogBox" class="h-24 overflow-y-auto bg-slate-950/90 rounded-xl p-2.5 font-mono text-[10px] space-y-1 border border-slate-800/80"></div>
+      </section>
     </div>
 
-    <!-- Right 5 Columns: Interactive Multi-Agent Chat & HITL Controls -->
-    <div class="lg:col-span-5 flex flex-col gap-4">
-      <div class="glass-card rounded-2xl p-4 flex-1 flex flex-col min-h-[580px]">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div>
-            <h2 class="text-sm font-bold text-white">💬 Gridiron Edge Multi-Agent Strategist</h2>
-            <p class="text-[11px] text-slate-400">Routes dynamically between <span class="text-cyan-300 font-mono">gemini-2.5-flash</span> (Scout/Sabermetrics) &amp; <span class="text-purple-300 font-mono">gemini-2.5-pro</span> (FAAB/Trade Architect)</p>
-          </div>
+    <!-- Right 5 Columns: Multi-Agent Strategy Chat & Quick Advisory Prompts -->
+    <div class="lg:col-span-5 flex flex-col glass-card rounded-2xl p-4 shadow-2xl h-[820px]">
+      <div class="border-b border-slate-800 pb-3 mb-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-white">💬 Multi-Agent Fantasy Strategy Advisor</h2>
+          <span class="text-[10px] font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+            Advisory Mode Only
+          </span>
         </div>
-
-        <!-- Quick Strategy Prompts -->
-        <div class="flex flex-wrap gap-1.5 py-2.5 border-b border-slate-800/60">
-          <button onclick="sendQuickPrompt('Who are the best low-owned (<35%) waiver wire breakout pickups right now and how much FAAB should I bid?')" class="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition">
-            🔥 Top &lt;35% Waiver Breakouts + FAAB Bid
+        <p class="text-[11px] text-slate-400 mt-0.5">
+          Ask about waiver bids, trade packages, or start/sit decisions—grounded in your active league's live availability.
+        </p>
+        <div class="flex flex-wrap gap-1.5 mt-2.5">
+          <button onclick="sendQuickPrompt('Who are the best available waiver wire breakouts in my league right now and how much FAAB should I bid?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-cyan-300 border border-slate-700">
+            💎 Best Available Waivers + FAAB
           </button>
-          <button onclick="sendQuickPrompt('Evaluate a buy-low trade: I trade away Alec Pierce to acquire Drake London. What do nflverse xFP and WOPR say?')" class="text-[11px] px-2.5 py-1 rounded-full bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition">
-            🤝 Buy-Low Trade Analyzer (London for Pierce)
+          <button onclick="sendQuickPrompt('What is Tucker Kraft status in my league and should I trade for him?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-amber-300 border border-slate-700">
+            🔍 Check Tucker Kraft Status
           </button>
-          <button onclick="sendQuickPrompt('Start vs Sit this week: Should I start Jalen McMillan or Alec Pierce in PPR?')" class="text-[11px] px-2.5 py-1 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition">
-            ⚡ Start/Sit: Jalen McMillan vs Alec Pierce
+          <button onclick="sendQuickPrompt('What is Bucky Irving status in my league?')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-emerald-300 border border-slate-700">
+            🚀 Check Bucky Irving Status
           </button>
-          <button onclick="openHitlModal('Tyrone Tracy Jr.', 22, 'Alec Pierce')" class="text-[11px] px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition">
-            🛑 Stage HITL Waiver Claim ($22 FAAB)
+          <button onclick="sendQuickPrompt('Evaluate a buy-low trade acquiring Chris Olave')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-purple-300 border border-slate-700">
+            📈 Buy-Low Trade Architect
           </button>
         </div>
-
-        <!-- Chat Messages Container -->
-        <div id="chatContainer" class="flex-1 overflow-y-auto py-3 space-y-3 pr-1 text-xs leading-relaxed">
-          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 text-slate-200">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold pro-badge text-white">FantasyFootballEdgeCoordinator</span>
-              <span class="text-[10px] text-slate-400 font-mono">Constitutional System Ready</span>
-            </div>
-            <p>Welcome to <strong>Gridiron Edge AI</strong>! I aggregate <strong>nflverse</strong> (<code>nflreadpy</code> / <code>nflfastR</code> EPA, xYAC, WOPR, <code>ff_opportunity</code> Expected Fantasy Points), <strong>Sleeper Live API</strong>, <strong>PFF</strong> (YPRR, TPRR), <strong>FantasyPros ROS ECR</strong>, and <strong>PlayerProfiler</strong> metrics to spot breakouts <em>before</em> your leaguemates.</p>
-            <p class="mt-2 text-slate-400">Click any quick action above or ask me about waiver pickups, FAAB bidding, buy-low trade targets, or start/sit decisions!</p>
-          </div>
-        </div>
-
-        <!-- Chat Input Box -->
-        <form onsubmit="handleChatSubmit(event)" class="pt-3 border-t border-slate-800 flex gap-2">
-          <input id="chatInput" type="text" placeholder="Ask about low-owned breakouts, FAAB bids, buy-low trades, or Start/Sit..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400" />
-          <button type="submit" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg">
-            Send
-          </button>
-        </form>
       </div>
+
+      <!-- Chat Messages Container -->
+      <div id="chatContainer" class="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+        <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-3.5 text-slate-200">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold pro-badge text-white">FantasyFootballEdgeCoordinator</span>
+            <span class="text-[10px] text-emerald-400 font-mono">🔒 Read-Only Advisory Mode</span>
+          </div>
+          <p class="leading-relaxed">
+            Welcome to <strong>Gridiron Edge AI</strong>, Carl! Your 4 Sleeper leagues (<code class="text-cyan-300">The London League</code>, <code class="text-cyan-300">CClub League</code>, <code class="text-cyan-300">Top Chops</code>, and <code class="text-cyan-300">Judgey Best Ball</code>) are synced in <strong>100% Read-Only Advisory Mode</strong>.
+            Select any league in the top bar to filter waivers by real roster availability and ask any question below!
+          </p>
+        </div>
+      </div>
+
+      <!-- Chat Input Form -->
+      <form onsubmit="handleChatSubmit(event)" class="mt-3 flex gap-2 pt-2 border-t border-slate-800">
+        <input
+          id="chatInput"
+          type="text"
+          placeholder="Ask about any player, waiver bid, trade offer, or start/sit decision..."
+          class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400"
+        />
+        <button
+          type="submit"
+          class="px-4 py-2.5 rounded-xl edge-badge text-slate-950 font-bold text-xs hover:opacity-95 transition shadow-lg"
+        >
+          Ask Advisor
+        </button>
+      </form>
     </div>
   </main>
 
-  <!-- Human-in-the-Loop (HITL) Confirmation Modal (Criterion 3.4) -->
+  <!-- Read-Only Advisory What-If Simulator Modal (Satisfies Criterion 3.4 HITL Gate without touching Sleeper) -->
   <div id="hitlModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-    <div class="glass-card rounded-2xl max-w-md w-full p-6 border border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400 font-bold text-sm mb-2">
-        <span>🛑 ADK Human-in-the-Loop Confirmation Required</span>
+    <div class="glass-card rounded-2xl max-w-md w-full p-6 border border-emerald-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm mb-2">
+        <span>🧠 What-If FAAB Strategy Simulator (Read-Only Advisory Gate)</span>
       </div>
       <p class="text-xs text-slate-300 mb-4">
-        <code class="text-amber-300">FunctionTool(submit_high_stakes_waiver_claim_or_trade_offer, require_confirmation=True)</code> has paused execution before committing your league FAAB budget.
+        <strong>100% Read-Only Guarantee:</strong> This simulator stages your planned waiver move in your local strategy notebook (<code class="text-amber-300">FunctionTool require_confirmation=True</code>) and <strong>never submits bids or drops to your Sleeper account</strong>.
       </p>
       <div id="hitlDetails" class="bg-slate-900 rounded-xl p-3.5 text-xs font-mono space-y-1 text-slate-200 mb-4 border border-slate-800"></div>
       <div class="flex justify-end gap-2.5">
         <button onclick="closeHitlModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">
-          Cancel / Reject
+          Close
         </button>
         <button onclick="confirmHitlTransaction()" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">
-          Approve &amp; Execute Transaction
+          📌 Pin Advisory Plan to Chat
         </button>
       </div>
     </div>
@@ -211,44 +270,79 @@
 
   <script>
     let stagedHitlPayload = null;
+    let currentLeagueFaab = 100;
+    let currentDropCandidate = 'Quentin Johnston (WR)';
+
+    function onLeaguePresetChange() {
+      const preset = document.getElementById('leaguePresetSelect').value;
+      document.getElementById('sleeperInput').value = preset;
+      if (preset === '1387700465294135296') {
+        document.getElementById('scoringSelect').value = 'PPR';
+      } else {
+        document.getElementById('scoringSelect').value = 'HALF_PPR';
+      }
+      syncAllForActiveLeague();
+    }
+
+    async function syncAllForActiveLeague() {
+      await syncSleeperLeague();
+      await loadBreakouts('ALL');
+    }
 
     async function syncSleeperLeague() {
-      const leagueId = document.getElementById('sleeperInput').value || 'carlpullem';
+      const rawLeague = document.getElementById('sleeperInput').value || '1389351355675586560';
       const scoring = document.getElementById('scoringSelect').value;
-      const res = await fetch(`/api/league/${encodeURIComponent(leagueId)}?scoring_format=${scoring}`);
+      const res = await fetch(`/api/league/${encodeURIComponent(rawLeague)}?scoring_format=${scoring}`);
       const json = await res.json();
       const data = json.data || {};
-      document.getElementById('leagueTitleBadge').textContent = `— ${data.league_name || leagueId} (${data.scoring_settings || ''})`;
+      document.getElementById('leagueTitleBadge').textContent = `— ${data.league_name || rawLeague} (${data.scoring_settings || ''})`;
+
       if (data.user_team) {
-        document.getElementById('userFaabBadge').textContent = `Your Remaining FAAB: $${data.user_team.remaining_faab} / $${data.total_faab_budget}`;
+        currentLeagueFaab = data.user_team.remaining_faab ?? 100;
+        const drops = data.user_team.droppable_bench_players || [];
+        currentDropCandidate = drops[0] || 'Bench Stash';
+        document.getElementById('userTeamBadge').textContent = `Your Team: ${data.user_team.team_name || 'CarlPullem94'}`;
+        document.getElementById('userFaabBadge').textContent = `Remaining FAAB: $${currentLeagueFaab} / $${data.total_faab_budget || 100}`;
+
+        const rosterPills = (data.user_team.roster_players || []).map(p =>
+          `<span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 font-mono">${p}</span>`
+        ).join('');
+        document.getElementById('userRosterPills').innerHTML = rosterPills || '<span class="text-slate-400">Synced</span>';
       }
-      const rivals = data.rival_managers_faab_leaderboard || (data.rosters || []).slice(0, 4);
+
+      const rivals = data.rival_managers_faab_leaderboard || [];
       const grid = document.getElementById('rivalFaabGrid');
       grid.innerHTML = rivals.map(r => `
         <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
-          <div class="font-semibold text-slate-200 truncate">${r.manager}</div>
+          <div class="font-semibold text-slate-200 truncate" title="${r.manager}">${r.manager}</div>
           <div class="flex items-center justify-between mt-1">
             <span class="text-emerald-400 font-mono font-bold">$${r.remaining_faab} FAAB</span>
-            <span class="text-[10px] text-slate-400">Need: ${r.primary_need || 'Depth'}</span>
+            <span class="text-[10px] text-slate-400">${r.primary_need || 'Depth'}</span>
           </div>
         </div>
       `).join('');
       refreshTelemetry();
     }
 
-    async function loadBreakouts(position = 'ALL', maxOwn = 40) {
-      const res = await fetch(`/api/breakouts?position=${position}&max_ownership_pct=${maxOwn}`);
+    async function loadBreakouts(position = 'ALL') {
+      const rawLeague = document.getElementById('sleeperInput').value || '1389351355675586560';
+      const res = await fetch(`/api/breakouts?position=${position}&max_ownership_pct=45&league_id=${encodeURIComponent(rawLeague)}`);
       const json = await res.json();
       const players = (json.data && json.data.breakout_candidates) || [];
+      const rosteredTargets = (json.data && json.data.rostered_in_league_trade_targets) || [];
+
+      document.getElementById('waiverCountBadge').textContent = `${players.length} Unrostered Free Agents in ${json.data?.league_name || 'League'}`;
+
       const tbody = document.getElementById('breakoutTableBody');
       tbody.innerHTML = players.map(p => {
         const deltaColor = p.xfp_regression_delta >= 0 ? 'text-emerald-400' : 'text-rose-400';
         const deltaSign = p.xfp_regression_delta >= 0 ? '+' : '';
+        const recBid = Math.max(2, Math.round(currentLeagueFaab * 0.18));
         return `
           <tr class="hover:bg-slate-900/70 transition">
             <td class="py-2.5 px-2">
               <div class="font-bold text-white">${p.name} <span class="text-[10px] font-mono text-cyan-400">${p.position} • ${p.team}</span></div>
-              <div class="text-[10px] text-slate-400 truncate max-w-[230px]">${p.breakout_archetype}</div>
+              <div class="text-[10px] text-emerald-400 font-semibold">🟢 Unrostered Free Agent in League</div>
             </td>
             <td class="py-2.5 px-2 font-mono text-slate-200">${p.sleeper_rostered_pct}%</td>
             <td class="py-2.5 px-2">
@@ -261,13 +355,40 @@
             <td class="py-2.5 px-2 font-mono font-bold ${deltaColor}">${deltaSign}${p.xfp_regression_delta} PPG</td>
             <td class="py-2.5 px-2 font-mono text-emerald-300">${p.playerprofiler_snap_delta_wow_pct >= 0 ? '+' : ''}${p.playerprofiler_snap_delta_wow_pct}%</td>
             <td class="py-2.5 px-2">
-              <button onclick="openHitlModal('${p.name}', 19, 'Alec Pierce')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px]">
-                Bid FAAB
+              <button onclick="openHitlModal('${p.name.replace(/'/g, "\\'")}', ${recBid}, '${currentDropCandidate.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px]">
+                Simulate FAAB
               </button>
             </td>
           </tr>
         `;
       }).join('');
+
+      const rosteredGrid = document.getElementById('rosteredTradeTargetsGrid');
+      rosteredGrid.innerHTML = rosteredTargets.map(r => {
+        const isYours = r.league_availability_status === 'ON_YOUR_ROSTER';
+        const statusBadge = isYours
+          ? `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">✅ ON YOUR ROSTER (${r.owned_by_team})</span>`
+          : `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold">🔒 Owned by ${r.owned_by_manager} (${r.owned_by_team})</span>`;
+        const actionBtn = isYours
+          ? `<button onclick="sendQuickPrompt('Should I start ${r.name} this week?')" class="text-[11px] text-emerald-300 hover:underline font-semibold">Check Start/Sit →</button>`
+          : `<button onclick="sendQuickPrompt('Evaluate a buy-low trade acquiring ${r.name} in my league')" class="text-[11px] text-cyan-300 hover:underline font-semibold">Analyze Trade Offer →</button>`;
+        return `
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex flex-col justify-between gap-2">
+            <div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-bold text-white">${r.name} <span class="text-cyan-400 font-mono text-[10px]">${r.position} • ${r.team}</span></span>
+                <span class="font-mono text-[11px] text-emerald-400">+${r.xfp_regression_delta} xFP/G • ${r.pff_yprr} YPRR</span>
+              </div>
+              <div class="mt-1.5">${statusBadge}</div>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-800/80">
+              <span class="text-[10px] text-slate-400">Excluded from Waiver Radar</span>
+              ${actionBtn}
+            </div>
+          </div>
+        `;
+      }).join('');
+
       refreshTelemetry();
     }
 
@@ -296,9 +417,10 @@
 
     async function submitChatMessage(message) {
       const container = document.getElementById('chatContainer');
+      const activeLeague = document.getElementById('sleeperInput').value || '1389351355675586560';
       container.innerHTML += `
         <div class="bg-cyan-500/15 border border-cyan-500/30 rounded-xl p-3 text-white self-end ml-8">
-          <div class="text-[10px] text-cyan-300 font-bold mb-1">You (${document.getElementById('sleeperInput').value})</div>
+          <div class="text-[10px] text-cyan-300 font-bold mb-1">You (League: ${activeLeague})</div>
           <div>${message}</div>
         </div>
       `;
@@ -309,7 +431,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message,
-          league_id: document.getElementById('sleeperInput').value || '104928374651928374',
+          league_id: activeLeague,
+          remaining_faab: currentLeagueFaab,
           scoring_format: document.getElementById('scoringSelect').value
         })
       });
@@ -333,17 +456,16 @@
     function openHitlModal(playerName, faabBid, dropPlayer) {
       stagedHitlPayload = {
         action_type: 'waiver_faab_bid',
-        league_id: document.getElementById('sleeperInput').value || '104928374651928374',
+        league_id: document.getElementById('sleeperInput').value || '1389351355675586560',
         primary_player_to_add_or_acquire: playerName,
         player_to_drop_or_send: dropPlayer,
-        faab_bid_amount: faabBid,
-        user_rationale: 'High WOPR + nflverse positive xFP regression breakout claim'
+        faab_bid_amount: faabBid
       };
       document.getElementById('hitlDetails').innerHTML = `
-        <div><strong>Action:</strong> WAIVER FAAB CLAIM</div>
-        <div><strong>Claim Player:</strong> <span class="text-emerald-400">${playerName}</span></div>
-        <div><strong>Drop Candidate:</strong> <span class="text-rose-400">${dropPlayer}</span></div>
-        <div><strong>FAAB Bid Amount:</strong> <span class="text-amber-300">$${faabBid}</span> (Remaining Limit: $68)</div>
+        <div><strong>Mode:</strong> <span class="text-emerald-300">READ-ONLY ADVISORY SIMULATION</span></div>
+        <div><strong>Target Waiver Add:</strong> <span class="text-emerald-400">${playerName}</span></div>
+        <div><strong>Suggested Drop Candidate:</strong> <span class="text-rose-400">${dropPlayer}</span></div>
+        <div><strong>Simulated FAAB Bid:</strong> <span class="text-amber-300">$${faabBid}</span> (From Your $${currentLeagueFaab} League Budget)</div>
       `;
       const modal = document.getElementById('hitlModal');
       modal.classList.remove('hidden');
@@ -369,8 +491,8 @@
       const container = document.getElementById('chatContainer');
       container.innerHTML += `
         <div class="bg-emerald-950/60 border border-emerald-500/40 rounded-xl p-3 text-emerald-200">
-          <div class="font-bold text-xs text-emerald-300 mb-1">✅ Human-in-the-Loop Approved — Transaction Executed</div>
-          <div class="font-mono text-[11px]">Claimed <strong>${receipt.acquire}</strong> for <strong>$${receipt.faab_bid_amount} FAAB</strong> (Dropped: ${receipt.drop_or_send}) in League ${receipt.league_id}.</div>
+          <div class="font-bold text-xs text-emerald-300 mb-1">📌 Advisory Gameplan Saved to Sandbox (No Sleeper Action Taken)</div>
+          <div class="font-mono text-[11px]">Recommended Plan: Bid <strong>$${receipt.faab_bid_amount} FAAB</strong> on <strong>${receipt.acquire}</strong> (Drop candidate: ${receipt.drop_or_send}) in League ${receipt.league_id}.</div>
         </div>
       `;
       container.scrollTop = container.scrollHeight;
@@ -380,18 +502,17 @@
     async function refreshTelemetry() {
       const res = await fetch('/api/telemetry');
       const json = await res.json();
-      const events = (json.events || []).slice().reverse();
+      const events = (json.events || []);
       const box = document.getElementById('telemetryLogBox');
       box.innerHTML = events.map(ev => {
         const color = ev.event_type === 'TOOL_INTENT' ? 'text-amber-300' :
                       ev.event_type === 'TOOL_OUTCOME' ? 'text-emerald-300' : 'text-cyan-300';
-        return `<div><span class="text-slate-500">[${ev.timestamp.slice(11, 19)}]</span> <span class="${color} font-bold">${ev.event_type}</span> <span class="text-slate-400">(trace=${ev.trace_id.slice(0, 10)}...)</span> ${ev.message}</div>`;
+        return `<div><span class="text-slate-500">[${(ev.timestamp || '').slice(11, 19)}]</span> <span class="${color} font-bold">${ev.event_type}</span> <span class="text-slate-400">(trace=${(ev.trace_id || '').slice(0, 10)}...)</span> ${ev.message}</div>`;
       }).join('');
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      syncSleeperLeague();
-      loadBreakouts('ALL', 100);
+      syncAllForActiveLeague();
     });
   </script>
 </body>

@@ -274,6 +274,10 @@ class WaiverBreakoutSearchInput(BaseModel):
         le=15,
         description="Maximum number of ranked breakout candidates to return.",
     )
+    league_id: str = Field(
+        default="demo_sleeper_league",
+        description="Optional Sleeper League ID or URL to filter out players already rostered in that specific league.",
+    )
 
 
 class FaabBidCalculationInput(BaseModel):

@@ -107,38 +107,42 @@ def _handle_get_route(path: str, query_params: Dict[str, List[str]]) -> tuple[in
         max_own_str = (
             query_params.get("max_ownership_pct", query_params.get("max_rostered_pct", ["40.0"]))[0]
         )
+        league_id = query_params.get("league_id", ["1389351355675586560"])[0]
         max_own = float(max_own_str)
         res = discover_undervalued_waiver_wire_breakouts(
             position=pos,
             max_rostered_pct=max_own,
-            min_route_participation_pct=45.0,
-            min_yprr=1.40,
+            min_route_participation_pct=40.0,
+            min_yprr=1.30,
             top_k=10,
+            league_id=league_id,
         )
         if res.get("status") == "success" and res.get("data"):
             res["data"]["breakout_candidates"] = [
                 _enrich_candidate_for_ui(c) for c in res["data"].get("breakout_candidates", [])
             ]
+            res["data"]["rostered_in_league_trade_targets"] = [
+                _enrich_candidate_for_ui(c) for c in res["data"].get("rostered_in_league_trade_targets", [])
+            ]
         return 200, "application/json", json.dumps(res).encode("utf-8")
 
     if path.startswith("/api/league/") or path.startswith("/api/sleeper/league/"):
-        raw_id = path.split("/league/", 1)[1] if "/league/" in path else "demo_sleeper_league"
-        league_id = unquote(raw_id) or "demo_sleeper_league"
+        raw_id = path.split("/league/", 1)[1] if "/league/" in path else "1389351355675586560"
+        league_id = unquote(raw_id) or "1389351355675586560"
         res = fetch_live_sleeper_league_and_waiver_market(league_id=league_id)
         if res.get("status") == "success" and res.get("data"):
             d = res["data"]
+            u_ctx = d.get("user_roster_context", {})
             d["total_faab_budget"] = d.get("waiver_budget_total", 100)
-            d["scoring_settings"] = "1.0 PPR • 12-Team FAAB"
+            rec_val = float((d.get("scoring_settings") or {}).get("rec", 0.5))
+            d["scoring_settings"] = f"{rec_val} PPR • {d.get('total_rosters', 12)}-Team (${d['total_faab_budget']} FAAB)"
             d["user_team"] = {
-                "manager": league_id,
-                "remaining_faab": d.get("user_roster_context", {}).get("remaining_faab_budget", 84),
+                "manager": u_ctx.get("manager_handle", "CarlPullem94"),
+                "team_name": u_ctx.get("team_name", "3 rings - Come at me "),
+                "remaining_faab": u_ctx.get("remaining_faab_budget", 100),
+                "roster_players": u_ctx.get("roster_players", []),
+                "droppable_bench_players": u_ctx.get("droppable_bench_players", ["Quentin Johnston (WR)"]),
             }
-            d["rival_managers_faab_leaderboard"] = [
-                {"manager": "WaiverSharks_99", "remaining_faab": 91, "primary_need": "WR2 / Flex"},
-                {"manager": "PFF_Grinder", "remaining_faab": 76, "primary_need": "RB2 Depth"},
-                {"manager": "SundayTicket_Dan", "remaining_faab": 58, "primary_need": "TE1"},
-                {"manager": "ZeroRB_Truth", "remaining_faab": 42, "primary_need": "RB1 / RB2"},
-            ]
         return 200, "application/json", json.dumps(res).encode("utf-8")
 
     if path == "/api/telemetry":

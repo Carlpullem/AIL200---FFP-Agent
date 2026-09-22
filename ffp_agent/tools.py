@@ -221,13 +221,15 @@ def discover_undervalued_waiver_wire_breakouts(
     min_route_participation_pct: float = 55.0,
     min_yprr: float = 1.80,
     top_k: int = 5,
+    league_id: str = "demo_sleeper_league",
 ) -> Dict[str, Any]:
     """Scan nflverse play-by-play and participation telemetry to identify low-owned (<35% rostered) breakout players.
 
     PURPOSE & DATA SOURCES:
     Filters all active NFL skill players in the `nflverse` catalog by Sleeper ownership percentage (`<= max_rostered_pct`),
     Route Participation %, Yards Per Route Run (`YPRR`), Week-over-Week Snap Share Delta %, and Expected Fantasy Points
-    (`xFP`) differential. Identifies players whose underlying opportunity has surged BEFORE a box-score touchdown spike.
+    (`xFP`) differential. Also cross-references live Sleeper league rosters (`league_id`) so players already rostered
+    in the user's specific league are excluded from Waiver Wire recommendations and flagged as Trade Targets instead.
 
     WHEN TO USE:
     Call this tool when the user asks who to pick up off waivers, which low-owned players are about to break out,
@@ -239,10 +241,11 @@ def discover_undervalued_waiver_wire_breakouts(
         min_route_participation_pct: Minimum route participation percentage for pass catchers (default 55.0%).
         min_yprr: Minimum Yards Per Route Run efficiency threshold (default 1.80).
         top_k: Number of top-ranked breakout candidates to return (1-15, default 5).
+        league_id: Optional Sleeper League ID or URL to filter against live league rosters.
 
     Returns:
-        Dict[str, Any]: Serialized `ToolResultEnvelope` containing ranked breakout candidates sorted by
-        `breakout_composite_score` and `xfp_differential_ppr`.
+        Dict[str, Any]: Serialized `ToolResultEnvelope` containing ranked unrostered `breakout_candidates`
+        plus `rostered_in_league_trade_targets` showing who owns already-rostered breakouts in that league.
     """
     tool_name = "discover_undervalued_waiver_wire_breakouts"
     raw_args = {
@@ -251,6 +254,7 @@ def discover_undervalued_waiver_wire_breakouts(
         "min_route_participation_pct": min_route_participation_pct,
         "min_yprr": min_yprr,
         "top_k": top_k,
+        "league_id": league_id,
     }
     before_tool_intent_callback(tool_name, raw_args)
 
@@ -262,6 +266,7 @@ def discover_undervalued_waiver_wire_breakouts(
                 min_route_participation_pct=min_route_participation_pct,
                 min_yprr=min_yprr,
                 top_k=top_k,
+                league_id=league_id,
             )
         except (ValidationError, ValueError) as exc:
             err_res = ToolResultEnvelope(
@@ -278,33 +283,56 @@ def discover_undervalued_waiver_wire_breakouts(
             after_tool_outcome_callback(tool_name, raw_args, err_res)
             return err_res
 
+        sleeper_ctx = get_sleeper_client().get_league_context(validated.league_id)
+        ownership_map: Dict[str, Dict[str, Any]] = sleeper_ctx.get("ownership_by_player_id", {})
+        rostered_ids = set(sleeper_ctx.get("rostered_sleeper_ids", []))
+
         client = get_nflverse_client()
-        candidates: List[Dict[str, Any]] = []
+        available_candidates: List[Dict[str, Any]] = []
+        rostered_in_league: List[Dict[str, Any]] = []
+
         for p in client.get_all_players():
             if validated.position != PositionFilter.ALL and p.position != validated.position.value:
                 continue
-            if p.rostered_pct_sleeper > validated.max_rostered_pct:
+            if p.rostered_pct_sleeper > validated.max_rostered_pct and p.player_id not in rostered_ids:
                 continue
-            # For WR/TE enforce route participation and YPRR; for RB/QB allow snap delta or rush share
             if p.position in ("WR", "TE"):
                 if p.route_participation_pct < validated.min_route_participation_pct:
                     continue
                 if p.yards_per_route_run_yprr < validated.min_yprr:
                     continue
-            candidates.append(p.model_dump())
 
-        candidates.sort(
+            p_dict = p.model_dump()
+            if p.player_id in rostered_ids:
+                owner_info = ownership_map.get(p.player_id, {"manager": "League Rival", "team_name": "Rival Team", "is_user": False})
+                p_dict["league_availability_status"] = (
+                    "ON_YOUR_ROSTER" if owner_info.get("is_user") else "ROSTERED_BY_RIVAL_TRADE_TARGET"
+                )
+                p_dict["owned_by_manager"] = owner_info.get("manager", "Rival")
+                p_dict["owned_by_team"] = owner_info.get("team_name", "Rival Team")
+                rostered_in_league.append(p_dict)
+            else:
+                p_dict["league_availability_status"] = "AVAILABLE_ON_WAIVERS"
+                p_dict["owned_by_manager"] = None
+                p_dict["owned_by_team"] = "Free Agent / Waivers"
+                available_candidates.append(p_dict)
+
+        available_candidates.sort(
             key=lambda x: (x["breakout_composite_score"], x["xfp_differential_ppr"], x["snap_share_delta_wow_pct"]),
             reverse=True,
         )
-        selected = candidates[: validated.top_k]
+        rostered_in_league.sort(
+            key=lambda x: (x["breakout_composite_score"], x["xfp_differential_ppr"]),
+            reverse=True,
+        )
+        selected = available_candidates[: validated.top_k]
 
         if not selected:
             err_res = ToolResultEnvelope(
                 status="recoverable_error",
                 tool_name=tool_name,
                 error_code="NO_PLAYERS_MATCHED_STRICT_FILTERS",
-                error_message="Zero players matched the current combination of ownership and efficiency thresholds.",
+                error_message="Zero unrostered players matched the current combination of ownership and efficiency thresholds.",
                 recovery_instructions=(
                     "Relax the filters by increasing `max_rostered_pct` to 50.0 or lowering `min_yprr` to 1.50 "
                     "and re-run `discover_undervalued_waiver_wire_breakouts`."
@@ -318,9 +346,13 @@ def discover_undervalued_waiver_wire_breakouts(
             status="success",
             tool_name=tool_name,
             data={
+                "league_id": sleeper_ctx.get("league_id"),
+                "league_name": sleeper_ctx.get("league_name"),
+                "read_only_advisory_mode": True,
                 "filter_criteria": validated.model_dump(),
                 "candidates_found": len(selected),
                 "breakout_candidates": selected,
+                "rostered_in_league_trade_targets": rostered_in_league,
             },
         ).model_dump()
         after_tool_outcome_callback(tool_name, raw_args, res)

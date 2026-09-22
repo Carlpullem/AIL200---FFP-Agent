@@ -504,6 +504,11 @@ class PlayerAdvancedMetricsProfile(BaseModel):
         default="🔥 SURGING (+17.0% L4 Role Expansion)",
         description="Recency trend badge highlighting last 3-4 game usage trajectory.",
     )
+    sharp_optimal_faab_pct: float = Field(
+        default=5.0,
+        description="Experienced manager market-clearing FAAB percentage (e.g., 9.0% = $9 for Wicks, 4.0% = $4 for AD Mitchell on a $100 budget).",
+    )
+
 
 
 

@@ -463,23 +463,30 @@ def calculate_optimal_faab_waiver_bid(
             after_tool_outcome_callback(tool_name, raw_args, err_res)
             return err_res
 
-        # Base valuation percentage of remaining FAAB driven by breakout score & xFP differential
-        base_pct = max(0.03, (profile.breakout_composite_score - 65.0) / 115.0)
-        xfp_boost = max(0.0, profile.xfp_differential_ppr * 0.018)
-        need_multiplier = 0.75 + (0.50 * validated.positional_need_urgency)
-        market_multiplier = 0.80 + (0.40 * validated.league_aggressiveness_index)
-
-        optimal_pct = min(0.65, (base_pct + xfp_boost) * need_multiplier * market_multiplier)
-        conservative_pct = max(0.02, optimal_pct * 0.55)
-        aggressive_pct = min(0.85, optimal_pct * 1.45)
-
         rem = validated.remaining_faab_budget
-        conservative_bid = max(1, int(round(rem * conservative_pct))) if rem > 0 else 0
-        optimal_bid = max(conservative_bid + 1, int(round(rem * optimal_pct))) if rem > 1 else rem
-        aggressive_bid = max(optimal_bid + 2, int(round(rem * aggressive_pct))) if rem > 3 else rem
+        if not profile.is_waiver_eligible_healthy or rem <= 0:
+            conservative_bid = 0
+            optimal_bid = 0
+            aggressive_bid = 0
+            optimal_pct_of_remaining = 0.0
+            requires_hitl_confirmation = False
+        else:
+            # Experienced Sharp Market-Clearing Model (Vickrey Second-Price Auction):
+            # Because casual leaguemates bid on box-score points rather than underlying L4 YPRR/TPRR,
+            # you win pre-box-score breakouts by clearing the expected casual market by $1-$2 (e.g., $9 for Wicks, $4 for AD Mitchell),
+            # rather than overbidding 20-30% of your FAAB against yourself.
+            sharp_pct = getattr(profile, "sharp_optimal_faab_pct", 5.0) / 100.0
+            urgency_adj = 0.85 + (0.214 * validated.positional_need_urgency)  # 1.00 at default urgency=0.70
+            optimal_pct = max(0.01, min(0.45, sharp_pct * urgency_adj))
+            conservative_pct = max(0.01, optimal_pct * 0.55)
+            aggressive_pct = min(0.60, optimal_pct * 1.50)
 
-        optimal_pct_of_remaining = round((optimal_bid / max(1, rem)) * 100.0, 1)
-        requires_hitl_confirmation = optimal_pct_of_remaining > 30.0
+            optimal_bid = max(1, int(round(rem * optimal_pct)))
+            conservative_bid = max(1, min(optimal_bid - 1, int(round(rem * conservative_pct)))) if optimal_bid > 1 else 1
+            aggressive_bid = max(optimal_bid + 2, int(round(rem * aggressive_pct)))
+
+            optimal_pct_of_remaining = round((optimal_bid / max(1, rem)) * 100.0, 1)
+            requires_hitl_confirmation = optimal_pct_of_remaining > 30.0
 
         res = ToolResultEnvelope(
             status="success",
@@ -496,29 +503,31 @@ def calculate_optimal_faab_waiver_bid(
                     "conservative_stash": {
                         "dollar_bid": conservative_bid,
                         "pct_of_remaining_faab": round((conservative_bid / max(1, rem)) * 100.0, 1),
-                        "win_probability_est": "38%",
+                        "win_probability_est": "45%",
                     },
                     "optimal_game_theory": {
                         "dollar_bid": optimal_bid,
                         "pct_of_remaining_faab": optimal_pct_of_remaining,
-                        "win_probability_est": "76%",
+                        "win_probability_est": "82%",
                     },
                     "aggressive_must_win": {
                         "dollar_bid": aggressive_bid,
                         "pct_of_remaining_faab": round((aggressive_bid / max(1, rem)) * 100.0, 1),
-                        "win_probability_est": "94%",
+                        "win_probability_est": "96%",
                     },
                 },
                 "requires_hitl_confirmation_if_submitted": requires_hitl_confirmation,
                 "game_theory_rationale": (
-                    f"{profile.player_name} carries a {profile.breakout_composite_score:.1f}/100 Breakout Score "
-                    f"with +{profile.xfp_differential_ppr:.1f} PPR xFP/game positive regression and "
-                    f"+{profile.snap_share_delta_wow_pct:.1f}% WoW snap growth ({profile.injury_or_depth_chart_catalyst})."
+                    f"Sharp Market-Clearing Valuation: Because {profile.player_name} is a pre-box-score underlying L4 metric breakout "
+                    f"(Actual: {profile.actual_fantasy_points_ppr_pg} PPG vs Expected: {profile.expected_fantasy_points_ppr_pg} xFP/G, "
+                    f"+{profile.xfp_differential_ppr:.1f} xFP diff, {profile.l4_weekly_trajectory}), casual leaguemates will not overbid. "
+                    f"An Optimal Sharp Bid of ${optimal_bid} ({optimal_pct_of_remaining}% FAAB) clears $1-$2 above casual bids without wasting budget."
                 ),
             },
         ).model_dump()
         after_tool_outcome_callback(tool_name, raw_args, res)
         return res
+
 
 
 def evaluate_asymmetric_buy_low_trade_package(

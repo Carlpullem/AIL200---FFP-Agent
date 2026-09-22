@@ -350,7 +350,8 @@
       tbody.innerHTML = players.map(p => {
         const deltaColor = p.xfp_regression_delta >= 0 ? 'text-emerald-400' : 'text-rose-400';
         const deltaSign = p.xfp_regression_delta >= 0 ? '+' : '';
-        const recBid = Math.max(2, Math.round(currentLeagueFaab * 0.18));
+        const sharpPct = (p.sharp_optimal_faab_pct || 5.0) / 100.0;
+        const recBid = Math.max(1, Math.round(currentLeagueFaab * sharpPct));
         const l4DeltaSign = (p.l4_route_delta_pct || 0) >= 0 ? '+' : '';
         const yprrDeltaSign = (p.l4_yprr_delta || 0) >= 0 ? '+' : '';
         return `
@@ -378,13 +379,14 @@
             <td class="py-2.5 px-2 font-mono font-semibold text-cyan-300">${p.playerprofiler_wopr}</td>
             <td class="py-2.5 px-2 font-mono font-bold ${deltaColor}">${deltaSign}${p.xfp_regression_delta} PPG</td>
             <td class="py-2.5 px-2">
-              <button onclick="openHitlModal('${p.name.replace(/'/g, "\\'")}', ${recBid}, '${currentDropCandidate.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px]">
-                Simulate FAAB
+              <button onclick="openHitlModal('${p.name.replace(/'/g, "\\'")}', ${recBid}, '${currentDropCandidate.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px] font-mono">
+                Bid $${recBid} (${p.sharp_optimal_faab_pct || 5}%)
               </button>
             </td>
           </tr>
         `;
       }).join('');
+
 
       const rosteredGrid = document.getElementById('rosteredTradeTargetsGrid');
       rosteredGrid.innerHTML = rosteredTargets.map(r => {

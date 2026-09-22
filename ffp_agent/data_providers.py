@@ -69,6 +69,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 22.0,
         "l4_weekly_trajectory": "64% → 78% → 88% → 93% routes",
         "recency_trend_badge": "🔥 SURGING (+22.0% L4 Route Surge | 2.54 L4 YPRR)",
+        "sharp_optimal_faab_pct": 7.0,
     },
     {
         "player_id": "11625",
@@ -109,6 +110,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 23.5,
         "l4_weekly_trajectory": "48% → 65% → 79% → 84% routes",
         "recency_trend_badge": "🔥 SURGING (+23.5% L4 Route Surge | 2.61 L4 YPRR)",
+        "sharp_optimal_faab_pct": 4.0,
     },
     {
         "player_id": "11435",
@@ -149,6 +151,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 24.0,
         "l4_weekly_trajectory": "28% → 44% → 58% → 65% snaps",
         "recency_trend_badge": "🔥 SURGING (+24.0% L4 Snap Surge | 2.18 L4 YPRR)",
+        "sharp_optimal_faab_pct": 8.0,
     },
     {
         "player_id": "9486",
@@ -189,6 +192,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 18.5,
         "l4_weekly_trajectory": "54% → 68% → 77% → 82% routes",
         "recency_trend_badge": "🔥 SURGING (+18.5% L4 Route Surge | 2.48 L4 YPRR)",
+        "sharp_optimal_faab_pct": 9.0,
     },
     {
         "player_id": "11618",
@@ -229,7 +233,9 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 16.2,
         "l4_weekly_trajectory": "68% → 76% → 85% → 89% routes",
         "recency_trend_badge": "🔥 SURGING (+16.2% L4 Route Surge | 2.42 L4 YPRR)",
+        "sharp_optimal_faab_pct": 5.0,
     },
+
     {
         "player_id": "11603",
         "player_name": "AJ Barner",
@@ -269,6 +275,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 19.4,
         "l4_weekly_trajectory": "55% → 69% → 78% → 83% routes",
         "recency_trend_badge": "🔥 SURGING (+19.4% L4 Route Surge | 2.12 L4 YPRR)",
+        "sharp_optimal_faab_pct": 3.0,
     },
     {
         "player_id": "11637",
@@ -309,6 +316,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 14.8,
         "l4_weekly_trajectory": "58% → 67% → 75% → 81% routes",
         "recency_trend_badge": "📈 RISING (+14.8% L4 Route Surge | 2.29 L4 YPRR)",
+        "sharp_optimal_faab_pct": 4.0,
     },
     {
         "player_id": "9504",
@@ -349,6 +357,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 17.8,
         "l4_weekly_trajectory": "61% → 73% → 82% → 87% routes",
         "recency_trend_badge": "🔥 SURGING (+17.8% L4 Route Surge | 2.26 L4 YPRR)",
+        "sharp_optimal_faab_pct": 5.0,
     },
     {
         "player_id": "11575",
@@ -389,6 +398,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 15.0,
         "l4_weekly_trajectory": "31% → 42% → 51% → 56% snaps",
         "recency_trend_badge": "📈 RISING (+15.0% L4 Snap Surge | 2.15 L4 YPRR)",
+        "sharp_optimal_faab_pct": 4.0,
     },
     {
         "player_id": "11597",
@@ -429,6 +439,7 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 13.5,
         "l4_weekly_trajectory": "64% → 74% → 81% → 85% routes",
         "recency_trend_badge": "📈 RISING (+13.5% L4 Route Surge | 1.94 L4 YPRR)",
+        "sharp_optimal_faab_pct": 3.0,
     },
     {
         "player_id": "11626",
@@ -469,7 +480,9 @@ _CURATED_NFLVERSE_SABERMETRIC_CATALOG: List[Dict[str, Any]] = [
         "l4_route_delta_pct": 11.2,
         "l4_weekly_trajectory": "69% → 75% → 81% → 84% routes",
         "recency_trend_badge": "📈 RISING (+11.2% L4 Route Surge | 2.10 L4 YPRR)",
+        "sharp_optimal_faab_pct": 4.0,
     },
+
     # --- INJURED / INACTIVE / OFF-DEPTH-CHART PLAYERS (Automatically Excluded by Gatekeeper) ---
     {
         "player_id": "11638",

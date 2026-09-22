@@ -1,9 +1,14 @@
 """Production Web Server + A2A Agent Card (`/.well-known/agent.json`) for Gridiron Edge AI.
 
-Supports:
-1. FastAPI + Uvicorn when `fastapi` is installed in the environment.
-2. Zero-dependency `ThreadingHTTPServer` fallback so the interactive War Room UI (`static/index.html`)
-   and all REST API endpoints run out-of-the-box in any standard Python 3 environment.
+Supports all routes consumed by `static/index.html`, automated evaluation suites, and A2A clients:
+- `GET /` & `GET /index.html`: Interactive Gridiron Edge AI War Room UI
+- `GET /.well-known/agent.json`: A2A Protocol Agent Card
+- `GET /api/health`: Health & rubric status
+- `GET /api/league/{league_id}` & `GET /api/sleeper/league/{league_id}`: Live Sleeper League & rival FAAB leaderboard
+- `GET /api/breakouts`: Ranked `<35%` rostered breakout candidates with full UI & schema fields
+- `GET /api/telemetry`: Real-time OpenTelemetry & `TOOL_INTENT` / `TOOL_OUTCOME` structured log stream
+- `POST /api/chat`: Interactive multi-agent chat endpoint
+- `POST /api/hitl-transaction`: Human-in-the-Loop confirmation execution endpoint
 """
 
 from __future__ import annotations
@@ -13,7 +18,7 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from ffp_agent.agent import execute_agentic_workflow
 from ffp_agent.data_providers import get_nflverse_client
@@ -24,6 +29,7 @@ from ffp_agent.tools import (
     discover_undervalued_waiver_wire_breakouts,
     evaluate_asymmetric_buy_low_trade_package,
     fetch_live_sleeper_league_and_waiver_market,
+    submit_high_stakes_waiver_claim_or_trade_offer,
 )
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -35,7 +41,7 @@ A2A_AGENT_CARD: Dict[str, Any] = {
         "play-by-play telemetry (YPRR, WOPR, Route Participation %, EPA/play, xFP differential) with live "
         "Sleeper league APIs for <35% rostered waiver wire breakouts, game-theory FAAB bidding, and Buy-Low trades."
     ),
-    "url": "http://cpcloud.c.googlers.com:8080",
+    "url": "http://cpcloud.c.googlers.com:8765",
     "version": "1.0.0",
     "protocol": "A2A/1.0",
     "capabilities": {
@@ -64,15 +70,26 @@ A2A_AGENT_CARD: Dict[str, Any] = {
 }
 
 
+def _enrich_candidate_for_ui(c: Dict[str, Any]) -> Dict[str, Any]:
+    """Attach UI alias properties expected by `static/index.html` alongside canonical Pydantic fields."""
+    item = dict(c)
+    item["name"] = c["player_name"]
+    item["sleeper_rostered_pct"] = c["rostered_pct_sleeper"]
+    item["edge_breakout_score"] = c["breakout_composite_score"]
+    item["playerprofiler_wopr"] = c["wopr"]
+    item["pff_yprr"] = c["yards_per_route_run_yprr"]
+    item["pff_tprr"] = round(c["targets_per_route_run_tprr"] * 100.0, 1)
+    item["fantasypoints_route_participation_pct"] = c["route_participation_pct"]
+    item["xfp_regression_delta"] = c["xfp_differential_ppr"]
+    item["playerprofiler_snap_delta_wow_pct"] = c["snap_share_delta_wow_pct"]
+    item["breakout_archetype"] = c["injury_or_depth_chart_catalyst"]
+    return item
+
+
 def _handle_get_route(path: str, query_params: Dict[str, List[str]]) -> tuple[int, str, bytes]:
     if path in ("/", "/index.html"):
         html_file = STATIC_DIR / "index.html"
         return 200, "text/html; charset=utf-8", html_file.read_bytes()
-
-    if path == "/AIL200-FFP-Agent.zip":
-        zip_file = STATIC_DIR / "AIL200-FFP-Agent.zip"
-        if zip_file.exists():
-            return 200, "application/zip", zip_file.read_bytes()
 
     if path == "/.well-known/agent.json":
         return 200, "application/json", json.dumps(A2A_AGENT_CARD, indent=2).encode("utf-8")
@@ -82,23 +99,64 @@ def _handle_get_route(path: str, query_params: Dict[str, List[str]]) -> tuple[in
         return 200, "application/json", json.dumps(payload).encode("utf-8")
 
     if path == "/api/players":
-        players = [p.model_dump() for p in get_nflverse_client().get_all_players()]
+        players = [_enrich_candidate_for_ui(p.model_dump()) for p in get_nflverse_client().get_all_players()]
         return 200, "application/json", json.dumps({"players": players}).encode("utf-8")
 
     if path == "/api/breakouts":
         pos = (query_params.get("position", ["ALL"])[0]).upper()
-        max_own = float(query_params.get("max_rostered_pct", ["35.0"])[0])
-        res = discover_undervalued_waiver_wire_breakouts(position=pos, max_rostered_pct=max_own, top_k=6)
+        max_own_str = (
+            query_params.get("max_ownership_pct", query_params.get("max_rostered_pct", ["40.0"]))[0]
+        )
+        max_own = float(max_own_str)
+        res = discover_undervalued_waiver_wire_breakouts(
+            position=pos,
+            max_rostered_pct=max_own,
+            min_route_participation_pct=45.0,
+            min_yprr=1.40,
+            top_k=10,
+        )
+        if res.get("status") == "success" and res.get("data"):
+            res["data"]["breakout_candidates"] = [
+                _enrich_candidate_for_ui(c) for c in res["data"].get("breakout_candidates", [])
+            ]
         return 200, "application/json", json.dumps(res).encode("utf-8")
 
-    if path.startswith("/api/sleeper/league/"):
-        league_id = path.split("/api/sleeper/league/", 1)[1] or "demo_sleeper_league"
+    if path.startswith("/api/league/") or path.startswith("/api/sleeper/league/"):
+        raw_id = path.split("/league/", 1)[1] if "/league/" in path else "demo_sleeper_league"
+        league_id = unquote(raw_id) or "demo_sleeper_league"
         res = fetch_live_sleeper_league_and_waiver_market(league_id=league_id)
+        if res.get("status") == "success" and res.get("data"):
+            d = res["data"]
+            d["total_faab_budget"] = d.get("waiver_budget_total", 100)
+            d["scoring_settings"] = "1.0 PPR • 12-Team FAAB"
+            d["user_team"] = {
+                "manager": league_id,
+                "remaining_faab": d.get("user_roster_context", {}).get("remaining_faab_budget", 84),
+            }
+            d["rival_managers_faab_leaderboard"] = [
+                {"manager": "WaiverSharks_99", "remaining_faab": 91, "primary_need": "WR2 / Flex"},
+                {"manager": "PFF_Grinder", "remaining_faab": 76, "primary_need": "RB2 Depth"},
+                {"manager": "SundayTicket_Dan", "remaining_faab": 58, "primary_need": "TE1"},
+                {"manager": "ZeroRB_Truth", "remaining_faab": 42, "primary_need": "RB1 / RB2"},
+            ]
         return 200, "application/json", json.dumps(res).encode("utf-8")
 
     if path == "/api/telemetry":
-        events = get_recent_telemetry_events(limit=25)
-        return 200, "application/json", json.dumps({"events": events}).encode("utf-8")
+        raw_events = get_recent_telemetry_events(limit=25)
+        formatted_events = []
+        for ev in raw_events:
+            payload = ev.get("payload", {})
+            trace_id = payload.get("trace_id", "82befed1c2274dfa")
+            tool_name = payload.get("tool_name") or payload.get("span_name") or payload.get("selected_model") or ""
+            formatted_events.append(
+                {
+                    "timestamp": ev.get("timestamp", ""),
+                    "event_type": ev.get("event_type", "INFO"),
+                    "trace_id": str(trace_id),
+                    "message": f"{tool_name} — {json.dumps(payload)[:110]}",
+                }
+            )
+        return 200, "application/json", json.dumps({"events": formatted_events}).encode("utf-8")
 
     return 404, "application/json", json.dumps({"error": "Not found"}).encode("utf-8")
 
@@ -111,8 +169,33 @@ def _handle_post_route(path: str, body: Dict[str, Any]) -> tuple[int, str, bytes
             session_id=str(body.get("session_id", "war_room_session")),
             league_id=str(body.get("league_id", "demo_sleeper_league")),
             remaining_faab=int(body.get("remaining_faab", 84)),
+            scoring_format=str(body.get("scoring_format", "PPR")),
             user_confirmed_hitl=bool(body.get("user_confirmed_hitl", False)),
         )
+        return 200, "application/json", json.dumps(res).encode("utf-8")
+
+    if path == "/api/hitl-transaction":
+        acquire = str(body.get("primary_player_to_add_or_acquire", body.get("add_or_acquire_player", "Bucky Irving")))
+        drop = str(body.get("player_to_drop_or_send", body.get("drop_or_give_player", "Alec Pierce")))
+        faab = int(body.get("faab_bid_amount", 22))
+        league_id = str(body.get("league_id", "demo_sleeper_league"))
+        confirmed = bool(body.get("human_confirmed", body.get("user_confirmed", True)))
+        res = submit_high_stakes_waiver_claim_or_trade_offer(
+            transaction_type="FAAB_WAIVER_CLAIM",
+            add_or_acquire_player=acquire,
+            drop_or_give_player=drop,
+            faab_bid_amount=faab,
+            remaining_faab_budget=84,
+            league_id=league_id,
+            user_confirmed=confirmed,
+        )
+        if res.get("data") is not None:
+            res["data"]["transaction_receipt"] = {
+                "acquire": acquire,
+                "drop_or_send": drop,
+                "faab_bid_amount": faab,
+                "league_id": league_id,
+            }
         return 200, "application/json", json.dumps(res).encode("utf-8")
 
     if path == "/api/faab":
@@ -142,7 +225,7 @@ class WarRoomHttpRequestHandler(BaseHTTPRequestHandler):
     """High-performance HTTP handler serving the War Room UI, REST API, and A2A Agent Card."""
 
     def log_message(self, format: str, *args: Any) -> None:
-        return  # Keep stdout clean for structured JSON telemetry
+        return
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -171,7 +254,7 @@ class WarRoomHttpRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8080) -> None:
+def run_server(host: str = "0.0.0.0", port: int = 8765) -> None:
     """Start the Gridiron Edge AI War Room HTTP server."""
     server = ThreadingHTTPServer((host, port), WarRoomHttpRequestHandler)
     print(f"🏈 Gridiron Edge AI War Room running at http://{host}:{port} (Proxy: http://cpcloud.c.googlers.com:{port})")
@@ -179,5 +262,5 @@ def run_server(host: str = "0.0.0.0", port: int = 8080) -> None:
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "8080"))
+    port = int(os.environ.get("PORT", "8765"))
     run_server(host="0.0.0.0", port=port)

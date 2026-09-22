@@ -1,0 +1,35 @@
+[project]
+name = "gridiron-edge-ffp-agent"
+version = "2.0.0"
+description = "Gridiron Edge AI — Multi-Agent NFL Fantasy Football Sabermetric Platform built with Google ADK 2.0, nflverse (nflreadpy/nflfastR), and Sleeper API."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "google-adk>=1.16.0",
+    "a2a-sdk>=0.2.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "pydantic>=2.6.0",
+    "opentelemetry-api>=1.24.0",
+    "opentelemetry-sdk>=1.24.0",
+    "google-cloud-secret-manager>=2.20.0",
+    "google-cloud-dlp>=3.16.0",
+    "nflreadpy>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+    "google-agents-cli>=0.1.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.agent-starter-pack]
+agent_directory = "ffp_agent"
+deployment_target = "agent_engine"
+cli_driver = "google-agents-cli"

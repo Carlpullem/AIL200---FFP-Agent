@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gridiron Edge AI — NFL Fantasy Sabermetric Multi-Agent War Room</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at top left, #0b1528 0%, #050914 60%, #03060c 100%);
+      color: #e2e8f0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(56, 189, 248, 0.16);
+    }
+    .edge-badge {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+    .pro-badge {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    }
+    .flash-badge {
+      background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- Top Header -->
+  <header class="border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-30 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+        🏈
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-lg font-extrabold tracking-tight text-white">Gridiron Edge AI</h1>
+          <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            ADK 2.0 Multi-Agent
+          </span>
+          <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+            nflverse + Sleeper Live
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">
+          Aggregating <span class="text-cyan-300 font-medium">nflreadpy / nflfastR</span> (EPA, xYAC, WOPR, ff_opportunity xFP) • <span class="text-emerald-300 font-medium">PFF</span> (YPRR, TPRR) • <span class="text-indigo-300 font-medium">FantasyPros ECR</span> • <span class="text-amber-300 font-medium">PlayerProfiler</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Sleeper League Sync Controls -->
+    <div class="flex items-center gap-2">
+      <div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs">
+        <span class="text-slate-400 mr-2">Sleeper ID / User:</span>
+        <input id="sleeperInput" type="text" value="carlpullem" class="bg-transparent text-white font-mono focus:outline-none w-36" />
+      </div>
+      <select id="scoringSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+        <option value="ppr">1.0 PPR</option>
+        <option value="half_ppr">0.5 PPR</option>
+        <option value="superflex_tep">Superflex / TE-Prem</option>
+      </select>
+      <button onclick="syncSleeperLeague()" class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow">
+        Sync League & FAAB
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-6 py-5 grid grid-cols-1 lg:grid-cols-12 gap-5">
+    
+    <!-- Left 7 Columns: Sabermetric Breakout Table + League FAAB Context -->
+    <div class="lg:col-span-7 flex flex-col gap-5">
+      
+      <!-- League Snapshot Strip -->
+      <div class="glass-card rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <span>📊 Sleeper League & Rival FAAB Intelligence</span>
+              <span id="leagueTitleBadge" class="text-xs font-normal text-cyan-400"></span>
+            </h2>
+          </div>
+          <span class="text-xs text-emerald-400 font-mono" id="userFaabBadge">Your Remaining FAAB: $68 / $100</span>
+        </div>
+        <div id="rivalFaabGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs"></div>
+      </div>
+
+      <!-- Multi-Source Breakout Waiver Radar -->
+      <div class="glass-card rounded-2xl p-4 flex-1 flex flex-col">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 class="text-sm font-bold text-white">🚀 Pre-Breakout Waiver & Buy-Low Radar (nflverse + PFF + FantasyPoints + PlayerProfiler)</h2>
+            <p class="text-[11px] text-slate-400">Sorted by Composite Edge Breakout Score — Spot high-WOPR / positive-xFP players before box-score points catch up</p>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="loadBreakouts('ALL', 100)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">All Catalog</button>
+            <button onclick="loadBreakouts('ALL', 35)" class="px-2.5 py-1 rounded text-xs bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-semibold">&lt;35% Owned Gems</button>
+            <button onclick="loadBreakouts('WR', 40)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">WR</button>
+            <button onclick="loadBreakouts('RB', 40)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">RB</button>
+            <button onclick="loadBreakouts('TE', 40)" class="px-2.5 py-1 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-200">TE</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                <th class="py-2 px-2">Player</th>
+                <th class="py-2 px-2">Own%</th>
+                <th class="py-2 px-2">Edge Score</th>
+                <th class="py-2 px-2" title="Weighted Opportunity Rating (1.5*TargetShare + 0.7*AirYardsShare)">WOPR</th>
+                <th class="py-2 px-2" title="PFF Yards Per Route Run">YPRR</th>
+                <th class="py-2 px-2" title="Targets Per Route Run %">TPRR%</th>
+                <th class="py-2 px-2" title="Route Participation %">Routes%</th>
+                <th class="py-2 px-2" title="nflverse ff_opportunity Expected FP minus Actual FP">xFP Delta</th>
+                <th class="py-2 px-2" title="Week-over-Week Snap Share Delta">Snap Δ</th>
+                <th class="py-2 px-2">Action</th>
+              </tr>
+            </thead>
+            <tbody id="breakoutTableBody" class="divide-y divide-slate-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Live AgentOps Telemetry & OpenTelemetry Trace Inspector -->
+      <div class="glass-card rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">
+            🔍 AgentOps Observability: Intent-vs-Outcome Logs, OpenTelemetry Spans &amp; PII Scrubber
+          </h3>
+          <button onclick="refreshTelemetry()" class="text-[11px] text-slate-400 hover:text-white underline">Refresh Stream</button>
+        </div>
+        <div id="telemetryLogBox" class="bg-slate-950/90 rounded-xl p-3 font-mono text-[11px] text-slate-300 h-36 overflow-y-auto space-y-1.5 border border-slate-800"></div>
+      </div>
+    </div>
+
+    <!-- Right 5 Columns: Interactive Multi-Agent Chat & HITL Controls -->
+    <div class="lg:col-span-5 flex flex-col gap-4">
+      <div class="glass-card rounded-2xl p-4 flex-1 flex flex-col min-h-[580px]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="text-sm font-bold text-white">💬 Gridiron Edge Multi-Agent Strategist</h2>
+            <p class="text-[11px] text-slate-400">Routes dynamically between <span class="text-cyan-300 font-mono">gemini-2.5-flash</span> (Scout/Sabermetrics) &amp; <span class="text-purple-300 font-mono">gemini-2.5-pro</span> (FAAB/Trade Architect)</p>
+          </div>
+        </div>
+
+        <!-- Quick Strategy Prompts -->
+        <div class="flex flex-wrap gap-1.5 py-2.5 border-b border-slate-800/60">
+          <button onclick="sendQuickPrompt('Who are the best low-owned (<35%) waiver wire breakout pickups right now and how much FAAB should I bid?')" class="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition">
+            🔥 Top &lt;35% Waiver Breakouts + FAAB Bid
+          </button>
+          <button onclick="sendQuickPrompt('Evaluate a buy-low trade: I trade away Alec Pierce to acquire Drake London. What do nflverse xFP and WOPR say?')" class="text-[11px] px-2.5 py-1 rounded-full bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition">
+            🤝 Buy-Low Trade Analyzer (London for Pierce)
+          </button>
+          <button onclick="sendQuickPrompt('Start vs Sit this week: Should I start Jalen McMillan or Alec Pierce in PPR?')" class="text-[11px] px-2.5 py-1 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition">
+            ⚡ Start/Sit: Jalen McMillan vs Alec Pierce
+          </button>
+          <button onclick="openHitlModal('Tyrone Tracy Jr.', 22, 'Alec Pierce')" class="text-[11px] px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition">
+            🛑 Stage HITL Waiver Claim ($22 FAAB)
+          </button>
+        </div>
+
+        <!-- Chat Messages Container -->
+        <div id="chatContainer" class="flex-1 overflow-y-auto py-3 space-y-3 pr-1 text-xs leading-relaxed">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 text-slate-200">
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold pro-badge text-white">FantasyFootballEdgeCoordinator</span>
+              <span class="text-[10px] text-slate-400 font-mono">Constitutional System Ready</span>
+            </div>
+            <p>Welcome to <strong>Gridiron Edge AI</strong>! I aggregate <strong>nflverse</strong> (<code>nflreadpy</code> / <code>nflfastR</code> EPA, xYAC, WOPR, <code>ff_opportunity</code> Expected Fantasy Points), <strong>Sleeper Live API</strong>, <strong>PFF</strong> (YPRR, TPRR), <strong>FantasyPros ROS ECR</strong>, and <strong>PlayerProfiler</strong> metrics to spot breakouts <em>before</em> your leaguemates.</p>
+            <p class="mt-2 text-slate-400">Click any quick action above or ask me about waiver pickups, FAAB bidding, buy-low trade targets, or start/sit decisions!</p>
+          </div>
+        </div>
+
+        <!-- Chat Input Box -->
+        <form onsubmit="handleChatSubmit(event)" class="pt-3 border-t border-slate-800 flex gap-2">
+          <input id="chatInput" type="text" placeholder="Ask about low-owned breakouts, FAAB bids, buy-low trades, or Start/Sit..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400" />
+          <button type="submit" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg">
+            Send
+          </button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Human-in-the-Loop (HITL) Confirmation Modal (Criterion 3.4) -->
+  <div id="hitlModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-6 border border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400 font-bold text-sm mb-2">
+        <span>🛑 ADK Human-in-the-Loop Confirmation Required</span>
+      </div>
+      <p class="text-xs text-slate-300 mb-4">
+        <code class="text-amber-300">FunctionTool(submit_high_stakes_waiver_claim_or_trade_offer, require_confirmation=True)</code> has paused execution before committing your league FAAB budget.
+      </p>
+      <div id="hitlDetails" class="bg-slate-900 rounded-xl p-3.5 text-xs font-mono space-y-1 text-slate-200 mb-4 border border-slate-800"></div>
+      <div class="flex justify-end gap-2.5">
+        <button onclick="closeHitlModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">
+          Cancel / Reject
+        </button>
+        <button onclick="confirmHitlTransaction()" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">
+          Approve &amp; Execute Transaction
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let stagedHitlPayload = null;
+
+    async function syncSleeperLeague() {
+      const leagueId = document.getElementById('sleeperInput').value || 'carlpullem';
+      const scoring = document.getElementById('scoringSelect').value;
+      const res = await fetch(`/api/league/${encodeURIComponent(leagueId)}?scoring_format=${scoring}`);
+      const json = await res.json();
+      const data = json.data || {};
+      document.getElementById('leagueTitleBadge').textContent = `— ${data.league_name || leagueId} (${data.scoring_settings || ''})`;
+      if (data.user_team) {
+        document.getElementById('userFaabBadge').textContent = `Your Remaining FAAB: $${data.user_team.remaining_faab} / $${data.total_faab_budget}`;
+      }
+      const rivals = data.rival_managers_faab_leaderboard || (data.rosters || []).slice(0, 4);
+      const grid = document.getElementById('rivalFaabGrid');
+      grid.innerHTML = rivals.map(r => `
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+          <div class="font-semibold text-slate-200 truncate">${r.manager}</div>
+          <div class="flex items-center justify-between mt-1">
+            <span class="text-emerald-400 font-mono font-bold">$${r.remaining_faab} FAAB</span>
+            <span class="text-[10px] text-slate-400">Need: ${r.primary_need || 'Depth'}</span>
+          </div>
+        </div>
+      `).join('');
+      refreshTelemetry();
+    }
+
+    async function loadBreakouts(position = 'ALL', maxOwn = 40) {
+      const res = await fetch(`/api/breakouts?position=${position}&max_ownership_pct=${maxOwn}`);
+      const json = await res.json();
+      const players = (json.data && json.data.breakout_candidates) || [];
+      const tbody = document.getElementById('breakoutTableBody');
+      tbody.innerHTML = players.map(p => {
+        const deltaColor = p.xfp_regression_delta >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        const deltaSign = p.xfp_regression_delta >= 0 ? '+' : '';
+        return `
+          <tr class="hover:bg-slate-900/70 transition">
+            <td class="py-2.5 px-2">
+              <div class="font-bold text-white">${p.name} <span class="text-[10px] font-mono text-cyan-400">${p.position} • ${p.team}</span></div>
+              <div class="text-[10px] text-slate-400 truncate max-w-[230px]">${p.breakout_archetype}</div>
+            </td>
+            <td class="py-2.5 px-2 font-mono text-slate-200">${p.sleeper_rostered_pct}%</td>
+            <td class="py-2.5 px-2">
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold edge-badge text-slate-950">${p.edge_breakout_score}</span>
+            </td>
+            <td class="py-2.5 px-2 font-mono font-semibold text-cyan-300">${p.playerprofiler_wopr}</td>
+            <td class="py-2.5 px-2 font-mono text-slate-200">${p.pff_yprr}</td>
+            <td class="py-2.5 px-2 font-mono text-slate-200">${p.pff_tprr}%</td>
+            <td class="py-2.5 px-2 font-mono text-slate-200">${p.fantasypoints_route_participation_pct}%</td>
+            <td class="py-2.5 px-2 font-mono font-bold ${deltaColor}">${deltaSign}${p.xfp_regression_delta} PPG</td>
+            <td class="py-2.5 px-2 font-mono text-emerald-300">${p.playerprofiler_snap_delta_wow_pct >= 0 ? '+' : ''}${p.playerprofiler_snap_delta_wow_pct}%</td>
+            <td class="py-2.5 px-2">
+              <button onclick="openHitlModal('${p.name}', 19, 'Alec Pierce')" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-[11px]">
+                Bid FAAB
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      refreshTelemetry();
+    }
+
+    function formatMarkdown(md) {
+      return md
+        .replace(/^### (.*$)/gim, '<h3 class="text-sm font-bold text-white mt-2 mb-1">$1</h3>')
+        .replace(/^#### (.*$)/gim, '<h4 class="text-xs font-bold text-cyan-300 mt-2.5 mb-1">$1</h4>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+        .replace(/`(.*?)`/g, '<code class="px-1 py-0.5 rounded bg-slate-800 text-emerald-300 font-mono text-[11px]">$1</code>')
+        .replace(/\n/g, '<br/>');
+    }
+
+    async function sendQuickPrompt(text) {
+      document.getElementById('chatInput').value = text;
+      await submitChatMessage(text);
+    }
+
+    async function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      await submitChatMessage(text);
+    }
+
+    async function submitChatMessage(message) {
+      const container = document.getElementById('chatContainer');
+      container.innerHTML += `
+        <div class="bg-cyan-500/15 border border-cyan-500/30 rounded-xl p-3 text-white self-end ml-8">
+          <div class="text-[10px] text-cyan-300 font-bold mb-1">You (${document.getElementById('sleeperInput').value})</div>
+          <div>${message}</div>
+        </div>
+      `;
+      container.scrollTop = container.scrollHeight;
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          league_id: document.getElementById('sleeperInput').value || '104928374651928374',
+          scoring_format: document.getElementById('scoringSelect').value
+        })
+      });
+      const data = await res.json();
+      const badgeClass = (data.routed_model || '').includes('pro') ? 'pro-badge' : 'flash-badge';
+      const toolsChips = (data.tools_invoked || []).map(t => `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-[10px]">🛠 ${t}</span>`).join(' ');
+
+      container.innerHTML += `
+        <div class="bg-slate-900/95 border border-slate-800 rounded-xl p-3.5 text-slate-200">
+          <div class="flex flex-wrap items-center gap-1.5 mb-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass} text-white">${data.routed_model || 'gemini-2.5-pro'}</span>
+            ${toolsChips}
+          </div>
+          <div>${formatMarkdown(data.response || '')}</div>
+        </div>
+      `;
+      container.scrollTop = container.scrollHeight;
+      refreshTelemetry();
+    }
+
+    function openHitlModal(playerName, faabBid, dropPlayer) {
+      stagedHitlPayload = {
+        action_type: 'waiver_faab_bid',
+        league_id: document.getElementById('sleeperInput').value || '104928374651928374',
+        primary_player_to_add_or_acquire: playerName,
+        player_to_drop_or_send: dropPlayer,
+        faab_bid_amount: faabBid,
+        user_rationale: 'High WOPR + nflverse positive xFP regression breakout claim'
+      };
+      document.getElementById('hitlDetails').innerHTML = `
+        <div><strong>Action:</strong> WAIVER FAAB CLAIM</div>
+        <div><strong>Claim Player:</strong> <span class="text-emerald-400">${playerName}</span></div>
+        <div><strong>Drop Candidate:</strong> <span class="text-rose-400">${dropPlayer}</span></div>
+        <div><strong>FAAB Bid Amount:</strong> <span class="text-amber-300">$${faabBid}</span> (Remaining Limit: $68)</div>
+      `;
+      const modal = document.getElementById('hitlModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeHitlModal() {
+      const modal = document.getElementById('hitlModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function confirmHitlTransaction() {
+      if (!stagedHitlPayload) return;
+      const res = await fetch('/api/hitl-transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...stagedHitlPayload, human_confirmed: true })
+      });
+      const json = await res.json();
+      closeHitlModal();
+      const receipt = (json.data && json.data.transaction_receipt) || {};
+      const container = document.getElementById('chatContainer');
+      container.innerHTML += `
+        <div class="bg-emerald-950/60 border border-emerald-500/40 rounded-xl p-3 text-emerald-200">
+          <div class="font-bold text-xs text-emerald-300 mb-1">✅ Human-in-the-Loop Approved — Transaction Executed</div>
+          <div class="font-mono text-[11px]">Claimed <strong>${receipt.acquire}</strong> for <strong>$${receipt.faab_bid_amount} FAAB</strong> (Dropped: ${receipt.drop_or_send}) in League ${receipt.league_id}.</div>
+        </div>
+      `;
+      container.scrollTop = container.scrollHeight;
+      refreshTelemetry();
+    }
+
+    async function refreshTelemetry() {
+      const res = await fetch('/api/telemetry');
+      const json = await res.json();
+      const events = (json.events || []).slice().reverse();
+      const box = document.getElementById('telemetryLogBox');
+      box.innerHTML = events.map(ev => {
+        const color = ev.event_type === 'TOOL_INTENT' ? 'text-amber-300' :
+                      ev.event_type === 'TOOL_OUTCOME' ? 'text-emerald-300' : 'text-cyan-300';
+        return `<div><span class="text-slate-500">[${ev.timestamp.slice(11, 19)}]</span> <span class="${color} font-bold">${ev.event_type}</span> <span class="text-slate-400">(trace=${ev.trace_id.slice(0, 10)}...)</span> ${ev.message}</div>`;
+      }).join('');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      syncSleeperLeague();
+      loadBreakouts('ALL', 100);
+    });
+  </script>
+</body>
+</html>

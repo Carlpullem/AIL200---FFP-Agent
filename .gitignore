@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local databases & caches
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache/
+.ruff_cache/
+
+# Environment variables & secrets (NEVER commit real keys!)
+.env
+*.pem
+*.key
+service-account*.json
+
+# Terraform state
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# OS files
+.DS_Store
+Thumbs.db

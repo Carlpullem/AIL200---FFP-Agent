@@ -1,0 +1,53 @@
+{
+  "eval_set_id": "gridiron_edge_ffp_agent_evalset_v2",
+  "name": "Gridiron Edge AI Fantasy Football Golden Evaluation Suite",
+  "description": "ADK Eval & google-agents-cli compatible trajectory and response rubric evaluation suite.",
+  "metrics": [
+    "tool_trajectory_avg_score",
+    "response_evaluation_score",
+    "rubric_groundedness_score"
+  ],
+  "eval_cases": [
+    {
+      "eval_id": "waiver_wire_gem_and_faab",
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "parts": [
+              {
+                "text": "Find me undervalued waiver wire breakout candidates under 35% rostered and calculate a winning FAAB bid."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "discover_undervalued_waiver_breakout_candidates",
+                "args": {
+                  "position": "ALL",
+                  "max_ownership_pct": 35.0,
+                  "scoring_format": "ppr"
+                }
+              },
+              {
+                "name": "calculate_optimal_faab_waiver_bid",
+                "args": {
+                  "player_name": "Tyrone Tracy Jr.",
+                  "user_remaining_faab": 68
+                }
+              }
+            ]
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Top breakout candidates under 35% rostered: Tyrone Tracy Jr. (96.2 Edge Breakout Score, 0.68 WOPR, +4.8 xFP delta) and Jalen McMillan (94.6 Edge Breakout Score, 0.58 WOPR, 2.38 PFF YPRR)."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

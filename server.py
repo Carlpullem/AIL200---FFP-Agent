@@ -98,6 +98,10 @@ def _handle_get_route(path: str, query_params: Dict[str, List[str]]) -> tuple[in
         payload = {"status": "healthy", "agent": "FantasyFootballEdgeCoordinator", "rubric_score": "95/95"}
         return 200, "application/json", json.dumps(payload).encode("utf-8")
 
+    if path == "/api/refresh":
+        sync_stats = get_nflverse_client().refresh_live_data(force=True)
+        return 200, "application/json", json.dumps({"status": "success", "sync": sync_stats}).encode("utf-8")
+
     if path == "/api/players":
         players = [_enrich_candidate_for_ui(p.model_dump()) for p in get_nflverse_client().get_all_players()]
         return 200, "application/json", json.dumps({"players": players}).encode("utf-8")

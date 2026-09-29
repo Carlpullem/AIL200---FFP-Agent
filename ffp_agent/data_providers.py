@@ -18,6 +18,7 @@ from __future__ import annotations
 import difflib
 import json
 import re
+import time
 import urllib.request
 from typing import Any, Dict, List, Optional
 
@@ -1049,12 +1050,19 @@ def normalize_league_id(raw_league_input: str) -> str:
 
 
 _LIVE_SLEEPER_PLAYER_STATUS_CACHE: Optional[Dict[str, Dict[str, Any]]] = None
+_LIVE_SLEEPER_PLAYER_STATUS_CACHE_TS: float = 0.0
+_CACHE_TTL_SECONDS: float = 1800.0  # Auto-refresh live NFL injury & depth chart status every 30 minutes
 
 
-def fetch_live_sleeper_player_status_map() -> Dict[str, Dict[str, Any]]:
+def fetch_live_sleeper_player_status_map(force_refresh: bool = False) -> Dict[str, Dict[str, Any]]:
     """Fetch and cache live NFL injury (`IR`, `PUP`, `Out`), active status, and depth chart order from `/v1/players/nfl`."""
-    global _LIVE_SLEEPER_PLAYER_STATUS_CACHE
-    if _LIVE_SLEEPER_PLAYER_STATUS_CACHE is not None:
+    global _LIVE_SLEEPER_PLAYER_STATUS_CACHE, _LIVE_SLEEPER_PLAYER_STATUS_CACHE_TS
+    now = time.time()
+    if (
+        not force_refresh
+        and _LIVE_SLEEPER_PLAYER_STATUS_CACHE is not None
+        and (now - _LIVE_SLEEPER_PLAYER_STATUS_CACHE_TS) < _CACHE_TTL_SECONDS
+    ):
         return _LIVE_SLEEPER_PLAYER_STATUS_CACHE
     try:
         req = urllib.request.Request(
@@ -1077,10 +1085,13 @@ def fetch_live_sleeper_player_status_map() -> Dict[str, Dict[str, Any]]:
                             "depth_chart_order": p.get("depth_chart_order"),
                         }
                 _LIVE_SLEEPER_PLAYER_STATUS_CACHE = subset
+                _LIVE_SLEEPER_PLAYER_STATUS_CACHE_TS = now
                 return subset
     except Exception:
         pass
-    _LIVE_SLEEPER_PLAYER_STATUS_CACHE = {}
+    if _LIVE_SLEEPER_PLAYER_STATUS_CACHE is None:
+        _LIVE_SLEEPER_PLAYER_STATUS_CACHE = {}
+        _LIVE_SLEEPER_PLAYER_STATUS_CACHE_TS = now
     return _LIVE_SLEEPER_PLAYER_STATUS_CACHE
 
 
@@ -1088,7 +1099,21 @@ class NflverseOpenDataClient:
     """Data provider wrapping `nflverse` (`nflreadpy` / `nflfastR`) play-by-play, L4 recency trends, and live NFL injury status."""
 
     def __init__(self) -> None:
-        live_status_map = fetch_live_sleeper_player_status_map()
+        self._last_sync_ts: float = 0.0
+        self._profiles: List[PlayerAdvancedMetricsProfile] = []
+        self.refresh_live_data(force=True)
+
+    def refresh_live_data(self, force: bool = False) -> Dict[str, Any]:
+        """Re-synchronize player profiles with live `/v1/players/nfl` injury, active 53-man roster, and depth chart telemetry."""
+        now = time.time()
+        if not force and self._profiles and (now - self._last_sync_ts) < _CACHE_TTL_SECONDS:
+            return {
+                "refreshed": False,
+                "last_sync_epoch": self._last_sync_ts,
+                "active_healthy_count": sum(1 for p in self._profiles if p.is_waiver_eligible_healthy),
+                "excluded_injured_or_inactive_count": sum(1 for p in self._profiles if not p.is_waiver_eligible_healthy),
+            }
+        live_status_map = fetch_live_sleeper_player_status_map(force_refresh=force)
         enriched_rows: List[PlayerAdvancedMetricsProfile] = []
         for row in _CURATED_NFLVERSE_SABERMETRIC_CATALOG:
             row_copy = dict(row)
@@ -1118,12 +1143,21 @@ class NflverseOpenDataClient:
                             f"🚫 Excluded: status={status}, injury={inj or 'None'} ({body or 'N/A'}), depth_chart_order={depth}"
                         )
             enriched_rows.append(PlayerAdvancedMetricsProfile(**row_copy))
-        self._profiles: List[PlayerAdvancedMetricsProfile] = enriched_rows
+        self._profiles = enriched_rows
+        self._last_sync_ts = now
+        return {
+            "refreshed": True,
+            "last_sync_epoch": self._last_sync_ts,
+            "active_healthy_count": sum(1 for p in self._profiles if p.is_waiver_eligible_healthy),
+            "excluded_injured_or_inactive_count": sum(1 for p in self._profiles if not p.is_waiver_eligible_healthy),
+        }
 
     def get_all_players(self) -> List[PlayerAdvancedMetricsProfile]:
+        self.refresh_live_data(force=False)
         return list(self._profiles)
 
     def get_player_by_name(self, name: str) -> Optional[PlayerAdvancedMetricsProfile]:
+        self.refresh_live_data(force=False)
         target = name.strip().lower()
         for profile in self._profiles:
             if profile.player_name.lower() == target:
@@ -1131,6 +1165,7 @@ class NflverseOpenDataClient:
         return None
 
     def fuzzy_suggest_players(self, query: str, limit: int = 4) -> List[str]:
+        self.refresh_live_data(force=False)
         all_names = [p.player_name for p in self._profiles]
         matches = difflib.get_close_matches(query.strip(), all_names, n=limit, cutoff=0.35)
         if not matches:
@@ -1165,7 +1200,7 @@ class SleeperPublicApiClient:
         league_id = normalize_league_id(raw_league_id)
         trending = self.fetch_trending_waiver_adds(limit=6)
 
-        # Start from known snapshot if one of Carl's 3 leagues, and enrich with live HTTP call if reachable
+        # Start from known snapshot if one of Carl's leagues, and enrich with live HTTP call if reachable
         base_snapshot = json.loads(json.dumps(_KNOWN_LEAGUE_SNAPSHOTS.get(league_id, {})))
 
         if league_id != "demo_sleeper_league":
@@ -1196,7 +1231,10 @@ class SleeperPublicApiClient:
                         tname = (u.get("metadata") or {}).get("team_name") or disp
                         users_map[uid] = {"display_name": disp, "team_name": tname}
 
-                    live_ownership: Dict[str, Dict[str, Any]] = dict(base_snapshot.get("ownership_by_player_id", {}))
+                    has_live_roster_players = any(bool(r.get("players")) for r in rosters_data)
+                    live_ownership: Dict[str, Dict[str, Any]] = (
+                        {} if has_live_roster_players else dict(base_snapshot.get("ownership_by_player_id", {}))
+                    )
                     total_budget = int((league_meta.get("settings") or {}).get("waiver_budget", 100))
                     rivals_list: List[Dict[str, Any]] = []
                     user_remaining_faab = total_budget
